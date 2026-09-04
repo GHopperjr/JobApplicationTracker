@@ -30,36 +30,40 @@ export function MobileApplicationRow({
   return (
     <div
       onClick={() => onRowClick(application.id)}
-      className="flex items-start gap-3 border-b border-slate-100 px-4 py-3"
+      className="flex items-start gap-1 border-b border-slate-100 px-2 py-2"
     >
-      <input
-        type="checkbox"
-        aria-label={`Select ${application.company_name}`}
-        checked={selected}
-        onChange={(e) => {
-          e.stopPropagation();
-          onToggleSelect(application.id);
-        }}
+      <span
         onClick={(e) => e.stopPropagation()}
-        className="mt-1 h-5 w-5 shrink-0 rounded border-slate-300"
-      />
+        className="flex h-11 w-11 shrink-0 items-center justify-center"
+      >
+        <input
+          type="checkbox"
+          aria-label={`Select ${application.company_name}`}
+          checked={selected}
+          onChange={() => onToggleSelect(application.id)}
+          className="h-5 w-5 rounded border-slate-300"
+        />
+      </span>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="truncate text-sm font-semibold text-slate-900">
-            {application.company_name}
-          </h3>
+      {/* Status gets its own line rather than sitting beside the company
+          name — squeezing both onto one row forced whichever one lost the
+          truncation fight to wrap mid-word instead. */}
+      <div className="min-w-0 flex-1 py-1">
+        <h3 className="truncate text-sm font-semibold text-slate-900">
+          {application.company_name}
+        </h3>
+        <p className="truncate text-sm text-slate-600">{application.job_title}</p>
+        <div className="mt-1.5 flex items-center gap-2">
           <StatusBadge status={application.status} />
         </div>
-        <p className="truncate text-sm text-slate-600">{application.job_title}</p>
-        <p className="mt-1 truncate text-xs text-slate-500">
+        <p className="mt-1.5 truncate text-xs text-slate-500">
           {PLATFORM_LABELS[application.platform_source]}
           {application.location && ` · ${application.location}`}
           {application.applied_date && ` · ${formatDate(application.applied_date)}`}
         </p>
       </div>
 
-      <div onClick={(e) => e.stopPropagation()}>
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
         <ApplicationActions
           application={application}
           onEdit={onEdit}

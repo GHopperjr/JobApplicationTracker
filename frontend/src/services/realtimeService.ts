@@ -6,9 +6,13 @@ export function subscribeToApplications(
 ) {
   // Channel name must be unique per subscription. A fixed topic re-subscribed
   // during React 18/19 StrictMode's mount -> unmount -> remount cycle throws
-  // "tried to subscribe multiple times".
+  // "tried to subscribe multiple times". `crypto.randomUUID()` would also
+  // work but only exists in secure contexts (HTTPS/localhost) — it's
+  // undefined when testing over a plain-HTTP LAN address, which throws here
+  // and (with no error boundary yet) blanks the whole app.
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
-    .channel(`applications-changes-${userId}-${crypto.randomUUID()}`)
+    .channel(`applications-changes-${userId}-${uniqueSuffix}`)
     .on(
       'postgres_changes',
       {
