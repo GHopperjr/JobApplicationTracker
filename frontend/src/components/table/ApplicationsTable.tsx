@@ -2,11 +2,13 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import type { ApplicationStatus } from '../../constants/status';
 import { useApplicationForm } from '../../hooks/useApplicationForm';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import type {
   Application,
   ApplicationSort,
   SortField,
 } from '../../services/applicationsService';
+import { MobileApplicationRow } from './MobileApplicationRow';
 import { TableRow } from './TableRow';
 
 const COLUMNS: { label: string; field?: SortField }[] = [
@@ -49,6 +51,7 @@ export function ApplicationsTable({
   onToggleSelectAll,
 }: ApplicationsTableProps) {
   const { openCreate } = useApplicationForm();
+  const isMobile = useIsMobile();
 
   if (isLoading) {
     return (
@@ -75,6 +78,25 @@ export function ApplicationsTable({
   };
 
   const allSelected = applications.length > 0 && selectedIds.length === applications.length;
+
+  if (isMobile) {
+    return (
+      <div>
+        {applications.map((application) => (
+          <MobileApplicationRow
+            key={application.id}
+            application={application}
+            onRowClick={onRowClick}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onStatusChange={onStatusChange}
+            selected={selectedIds.includes(application.id)}
+            onToggleSelect={onToggleSelect}
+          />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto">

@@ -14,9 +14,11 @@ const VARIANT_STYLES: Record<NonNullable<ButtonProps['variant']>, string> = {
   destructive: 'bg-rose-600 text-white hover:bg-rose-700',
 };
 
+// h-11 (44px) is the touch-target floor; shrinks back down at the `sm:`
+// breakpoint where a mouse cursor, not a fingertip, is doing the pointing.
 const SIZE_STYLES: Record<NonNullable<ButtonProps['size']>, string> = {
-  sm: 'h-8 px-3 text-xs',
-  md: 'h-9 px-4 text-sm',
+  sm: 'h-11 px-3 text-xs sm:h-8',
+  md: 'h-11 px-4 text-sm sm:h-9',
 };
 
 export function Button({

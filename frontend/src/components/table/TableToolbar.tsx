@@ -18,7 +18,7 @@ export function TableToolbar({
 }: TableToolbarProps) {
   if (selectedCount > 0) {
     return (
-      <div className="flex items-center gap-3 px-6 pt-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 px-6 pt-4 text-sm">
         <span className="font-medium text-slate-900">{selectedCount} selected</span>
 
         <select
@@ -28,7 +28,7 @@ export function TableToolbar({
             if (e.target.value) onBulkStatusChange(e.target.value as ApplicationStatus);
             e.target.value = '';
           }}
-          className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-1"
+          className="h-11 rounded-md border border-slate-200 px-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-1 sm:h-auto sm:py-1"
         >
           <option value="" disabled>
             Change status…
@@ -47,7 +47,7 @@ export function TableToolbar({
         <button
           type="button"
           onClick={onClearSelection}
-          className="text-xs text-slate-500 hover:text-slate-700"
+          className="flex h-11 items-center text-xs text-slate-500 hover:text-slate-700 sm:h-auto"
         >
           Clear selection
         </button>

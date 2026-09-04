@@ -9,3 +9,13 @@
 body {
   font-variant-numeric: tabular-nums;
 }
+
+/* The Kanban board and the mobile status tab bar scroll horizontally on
+   purpose; nothing else should. Without this, one overflowing row (a header
+   that doesn't wrap, a table that isn't wrapped in its own scroller) widens
+   the whole page instead of clipping, which is what forces a phone to zoom
+   out to see content that's actually just off-screen. */
+html,
+body {
+  overflow-x: hidden;
+}

@@ -3,6 +3,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { memo } from 'react';
 import { ApplicationActions } from '../../components/application/ApplicationActions';
 import { PLATFORM_LABELS } from '../../constants/platforms';
+import type { ApplicationStatus } from '../../constants/status';
 import { cn } from '../../lib/cn';
 import { formatCardDate } from '../../lib/format';
 import type { Application } from '../../services/applicationsService';
@@ -15,6 +16,10 @@ type ApplicationCardProps = {
   onView?: (id: string) => void;
   onEdit?: (application: Application) => void;
   onDelete?: (application: Application) => void;
+  /** "Move to…" — the only status-change path on mobile, where drag is
+   * disabled (docs/04-design-system.md). Omitted on desktop. */
+  onStatusChange?: (id: string, status: ApplicationStatus) => void;
+  showMoveTo?: boolean;
 };
 
 function ApplicationCardImpl({
@@ -23,6 +28,8 @@ function ApplicationCardImpl({
   onView,
   onEdit,
   onDelete,
+  onStatusChange,
+  showMoveTo = false,
 }: ApplicationCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: application.id,
@@ -93,7 +100,9 @@ function ApplicationCardImpl({
               application={application}
               onEdit={onEdit}
               onDelete={onDelete}
-              className="w-32 text-left"
+              onStatusChange={onStatusChange}
+              showMoveTo={showMoveTo}
+              className="w-40 text-left"
             />
           </div>
         )}
@@ -124,6 +133,8 @@ export const ApplicationCard = memo(ApplicationCardImpl, (prev, next) => {
     prev.isOverlay === next.isOverlay &&
     prev.onView === next.onView &&
     prev.onEdit === next.onEdit &&
-    prev.onDelete === next.onDelete
+    prev.onDelete === next.onDelete &&
+    prev.onStatusChange === next.onStatusChange &&
+    prev.showMoveTo === next.showMoveTo
   );
 });

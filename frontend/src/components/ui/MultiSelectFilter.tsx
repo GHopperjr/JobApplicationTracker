@@ -29,7 +29,7 @@ export function MultiSelectFilter<T extends string>({
           aria-pressed={selected.includes(value)}
           onClick={() => toggle(value)}
           className={cn(
-            'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors duration-100',
+            'min-h-11 rounded-full border px-3 text-xs font-medium transition-colors duration-100 sm:min-h-0 sm:px-2.5 sm:py-1',
             selected.includes(value)
               ? 'border-slate-900 bg-slate-900 text-white'
               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
