@@ -1,15 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useSearchParams } from 'react-router-dom';
 import { useApplicationForm } from '../../hooks/useApplicationForm';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
+import { ViewToggle } from './ViewToggle';
 
 export function AppShell() {
   const { user, signOut } = useAuth();
   const { openCreate } = useApplicationForm();
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') === 'table' ? 'table' : 'kanban';
 
   const handleSignOut = async () => {
     setMenuOpen(false);
@@ -25,7 +28,14 @@ export function AppShell() {
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
         <h1 className="text-xl font-semibold text-slate-900">Applications</h1>
 
-        {/* ViewToggle slot lands here in Phase 3 (Board/Table switch). */}
+        <ViewToggle
+          view={view}
+          onChange={(next) => {
+            const params = new URLSearchParams(searchParams);
+            params.set('view', next);
+            setSearchParams(params, { replace: true });
+          }}
+        />
 
         <div className="flex items-center gap-3">
           <Button variant="primary" onClick={openCreate}>
