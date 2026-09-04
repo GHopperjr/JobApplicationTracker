@@ -1,10 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useApplicationForm } from '../../hooks/useApplicationForm';
 import { useAuth } from '../../hooks/useAuth';
+import { Button } from '../ui/Button';
 
 export function AppShell() {
   const { user, signOut } = useAuth();
+  const { openCreate } = useApplicationForm();
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -22,33 +25,39 @@ export function AppShell() {
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-slate-200 bg-white px-6">
         <h1 className="text-xl font-semibold text-slate-900">Applications</h1>
 
-        {/* ViewToggle and "Add Application" slots land here in later phases. */}
+        {/* ViewToggle slot lands here in Phase 3 (Board/Table switch). */}
 
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((open) => !open)}
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            className="max-w-[160px] truncate rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
-          >
-            {user?.email}
-          </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 mt-1 w-36 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+        <div className="flex items-center gap-3">
+          <Button variant="primary" onClick={openCreate}>
+            + Add Application
+          </Button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              className="max-w-[160px] truncate rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
             >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={handleSignOut}
-                className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+              {user?.email}
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-1 w-36 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
               >
-                Sign out
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleSignOut}
+                  className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

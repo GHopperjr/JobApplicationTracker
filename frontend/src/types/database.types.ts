@@ -56,6 +56,7 @@ export type Database = {
           status_changed_at: string
           updated_at: string
           user_id: string
+          work_setup: Database["public"]["Enums"]["work_setup"] | null
         }
         Insert: {
           applied_date?: string | null
@@ -73,6 +74,7 @@ export type Database = {
           status_changed_at?: string
           updated_at?: string
           user_id?: string
+          work_setup?: Database["public"]["Enums"]["work_setup"] | null
         }
         Update: {
           applied_date?: string | null
@@ -90,6 +92,7 @@ export type Database = {
           status_changed_at?: string
           updated_at?: string
           user_id?: string
+          work_setup?: Database["public"]["Enums"]["work_setup"] | null
         }
         Relationships: []
       }
@@ -149,6 +152,7 @@ export type Database = {
         | "company_website"
         | "referral"
         | "other"
+      work_setup: "remote" | "hybrid" | "onsite"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -294,6 +298,7 @@ export const Constants = {
         "referral",
         "other",
       ],
+      work_setup: ["remote", "hybrid", "onsite"],
     },
   },
 } as const
