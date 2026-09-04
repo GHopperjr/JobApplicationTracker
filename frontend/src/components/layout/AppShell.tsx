@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { Button } from '../ui/Button';
 import { DropdownMenu } from '../ui/DropdownMenu';
+import { OfflineBanner } from './OfflineBanner';
 import { ViewToggle } from './ViewToggle';
 
 export function AppShell() {
@@ -95,6 +96,7 @@ export function AppShell() {
             </div>
           </div>
         )}
+        <OfflineBanner />
       </header>
 
       <main>

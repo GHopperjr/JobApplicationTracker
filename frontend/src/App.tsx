@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { ROUTES } from './constants/routes';
 import { ApplicationFormProvider } from './context/ApplicationFormProvider';
@@ -16,7 +17,9 @@ function App() {
         element={
           <ProtectedRoute>
             <ApplicationFormProvider>
-              <AppShell />
+              <ErrorBoundary>
+                <AppShell />
+              </ErrorBoundary>
             </ApplicationFormProvider>
           </ProtectedRoute>
         }
