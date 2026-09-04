@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApplicationStatus } from '../constants/status';
 import {
+  bulkDeleteApplications,
+  bulkUpdateStatus,
   createApplication,
   deleteApplication,
   updateApplication,
@@ -15,6 +17,8 @@ type MutationCallbacks = {
   onUpdated?: () => void;
   onDeleted?: () => void;
   onStatusError?: () => void;
+  onBulkStatusChanged?: (count: number) => void;
+  onBulkDeleted?: (count: number) => void;
 };
 
 export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
@@ -77,5 +81,42 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     onSettled: invalidate,
   });
 
-  return { create, update, remove, changeStatus };
+  // One request, one rollback — see the bulk-actions note in docs/05 F5.
+  // Must not be implemented as N concurrent single-row changeStatus calls.
+  const bulkStatus = useMutation({
+    mutationFn: ({ ids, status }: { ids: string[]; status: ApplicationStatus }) =>
+      bulkUpdateStatus(ids, status),
+
+    onMutate: async ({ ids, status }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
+      const previous = queryClient.getQueriesData<Application[]>({
+        queryKey: queryKeys.applications.lists,
+      });
+
+      queryClient.setQueriesData<Application[]>(
+        { queryKey: queryKeys.applications.lists },
+        (old) => (Array.isArray(old) ? old.map((a) => (ids.includes(a.id) ? { ...a, status } : a)) : old)
+      );
+
+      return { previous, count: ids.length };
+    },
+
+    onSuccess: (_data, { ids }) => callbacks.onBulkStatusChanged?.(ids.length),
+
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+
+    onSettled: invalidate,
+  });
+
+  const bulkRemove = useMutation({
+    mutationFn: bulkDeleteApplications,
+    onSuccess: (_data, ids) => {
+      invalidate();
+      callbacks.onBulkDeleted?.(ids.length);
+    },
+  });
+
+  return { create, update, remove, changeStatus, bulkStatus, bulkRemove };
 }

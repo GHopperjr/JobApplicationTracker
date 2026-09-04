@@ -1,5 +1,6 @@
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
+import type { ApplicationStatus } from '../../constants/status';
 import { useApplicationForm } from '../../hooks/useApplicationForm';
 import type {
   Application,
@@ -26,6 +27,12 @@ type ApplicationsTableProps = {
   sort: ApplicationSort;
   onSortChange: (sort: ApplicationSort) => void;
   onRowClick: (id: string) => void;
+  onEdit: (application: Application) => void;
+  onDelete: (application: Application) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
 };
 
 export function ApplicationsTable({
@@ -34,6 +41,12 @@ export function ApplicationsTable({
   sort,
   onSortChange,
   onRowClick,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
 }: ApplicationsTableProps) {
   const { openCreate } = useApplicationForm();
 
@@ -61,11 +74,22 @@ export function ApplicationsTable({
     });
   };
 
+  const allSelected = applications.length > 0 && selectedIds.length === applications.length;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] border-collapse">
         <thead>
           <tr className="border-b border-slate-200 text-xs font-medium uppercase tracking-wide text-slate-600">
+            <th scope="col" className="w-8 px-3 py-2.5">
+              <input
+                type="checkbox"
+                aria-label="Select all applications"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+            </th>
             {COLUMNS.map((col) =>
               col.field ? (
                 <th key={col.label} scope="col" className="px-3 py-2.5 text-left">
@@ -88,7 +112,16 @@ export function ApplicationsTable({
         </thead>
         <tbody>
           {applications.map((application) => (
-            <TableRow key={application.id} application={application} onRowClick={onRowClick} />
+            <TableRow
+              key={application.id}
+              application={application}
+              onRowClick={onRowClick}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onStatusChange={onStatusChange}
+              selected={selectedIds.includes(application.id)}
+              onToggleSelect={onToggleSelect}
+            />
           ))}
         </tbody>
       </table>

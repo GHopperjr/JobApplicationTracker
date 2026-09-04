@@ -11,8 +11,6 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useState } from 'react';
 import { STATUS_ORDER, type ApplicationStatus } from '../../constants/status';
-import { useApplicationMutations } from '../../hooks/useApplicationMutations';
-import { useToast } from '../../hooks/useToast';
 import type { Application } from '../../services/applicationsService';
 import { ApplicationCard } from './ApplicationCard';
 import { KanbanColumn } from './KanbanColumn';
@@ -21,17 +19,24 @@ type KanbanBoardProps = {
   byStatus: Record<ApplicationStatus, Application[]>;
   isLoading?: boolean;
   onCardClick: (id: string) => void;
+  onEdit: (application: Application) => void;
+  onDelete: (application: Application) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
   /** When non-empty, columns not in this list are hidden entirely rather
    * than rendered empty (docs/05 F7) — an empty status filter means "show
    * every column", not "show none". */
   statusFilter?: ApplicationStatus[];
 };
 
-export function KanbanBoard({ byStatus, isLoading, onCardClick, statusFilter = [] }: KanbanBoardProps) {
-  const { show } = useToast();
-  const { changeStatus } = useApplicationMutations({
-    onStatusError: () => show("Couldn't update status. Please try again.", 'error'),
-  });
+export function KanbanBoard({
+  byStatus,
+  isLoading,
+  onCardClick,
+  onEdit,
+  onDelete,
+  onStatusChange,
+  statusFilter = [],
+}: KanbanBoardProps) {
   const [activeApplication, setActiveApplication] = useState<Application | null>(null);
 
   // 8px activation constraint: without it, every click registers as a
@@ -62,7 +67,7 @@ export function KanbanBoard({ byStatus, isLoading, onCardClick, statusFilter = [
     const application = allApplications.find((a) => a.id === active.id);
     if (!application || application.status === targetStatus) return; // drop on same column: no-op
 
-    changeStatus.mutate({ id: application.id, status: targetStatus });
+    onStatusChange(application.id, targetStatus);
   };
 
   return (
@@ -80,6 +85,8 @@ export function KanbanBoard({ byStatus, isLoading, onCardClick, statusFilter = [
             applications={byStatus[status]}
             isLoading={isLoading}
             onCardClick={onCardClick}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         ))}
       </div>
