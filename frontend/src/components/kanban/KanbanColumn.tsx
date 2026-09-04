@@ -10,9 +10,18 @@ type KanbanColumnProps = {
   applications: Application[];
   isLoading?: boolean;
   onCardClick: (id: string) => void;
+  onEdit: (application: Application) => void;
+  onDelete: (application: Application) => void;
 };
 
-export function KanbanColumn({ status, applications, isLoading, onCardClick }: KanbanColumnProps) {
+export function KanbanColumn({
+  status,
+  applications,
+  isLoading,
+  onCardClick,
+  onEdit,
+  onDelete,
+}: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: isLoading });
 
   return (
@@ -37,7 +46,13 @@ export function KanbanColumn({ status, applications, isLoading, onCardClick }: K
           <p className="px-2 py-1 text-xs text-slate-500">Nothing here yet.</p>
         ) : (
           applications.map((application) => (
-            <ApplicationCard key={application.id} application={application} onView={onCardClick} />
+            <ApplicationCard
+              key={application.id}
+              application={application}
+              onView={onCardClick}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           ))
         )}
       </div>

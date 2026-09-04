@@ -1,12 +1,7 @@
-import { useState } from 'react';
 import { Button } from '../../components/ui/Button';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Drawer } from '../../components/ui/Drawer';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import { WORK_SETUP_LABELS } from '../../constants/workSetup';
-import { useApplicationForm } from '../../hooks/useApplicationForm';
-import { useApplicationMutations } from '../../hooks/useApplicationMutations';
-import { useToast } from '../../hooks/useToast';
 import { formatDate } from '../../lib/format';
 import type { Application } from '../../services/applicationsService';
 import { StatusBadge } from './StatusBadge';
@@ -33,6 +28,8 @@ type ApplicationDetailDrawerProps = {
   application: Application | undefined;
   isLoading: boolean;
   onClose: () => void;
+  onEdit: (application: Application) => void;
+  onDelete: (application: Application) => void;
 };
 
 export function ApplicationDetailDrawer({
@@ -40,14 +37,9 @@ export function ApplicationDetailDrawer({
   application,
   isLoading,
   onClose,
+  onEdit,
+  onDelete,
 }: ApplicationDetailDrawerProps) {
-  const { openEdit } = useApplicationForm();
-  const { show } = useToast();
-  const { remove } = useApplicationMutations({
-    onDeleted: () => show('Application deleted.'),
-  });
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={application?.company_name ?? 'Application'}>
       {!application ? (
@@ -103,33 +95,15 @@ export function ApplicationDetailDrawer({
           </div>
 
           <div className="mt-auto flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
-            <Button variant="secondary" onClick={() => openEdit(application)}>
+            <Button variant="secondary" onClick={() => onEdit(application)}>
               Edit
             </Button>
-            <Button variant="destructive" onClick={() => setDeleteConfirmOpen(true)}>
+            <Button variant="destructive" onClick={() => onDelete(application)}>
               Delete
             </Button>
           </div>
         </div>
       )}
-
-      <ConfirmDialog
-        isOpen={deleteConfirmOpen}
-        title="Delete application"
-        message={
-          application
-            ? `Delete the application for ${application.job_title} at ${application.company_name}? This cannot be undone.`
-            : ''
-        }
-        confirmLabel="Delete"
-        variant="destructive"
-        onConfirm={() => {
-          setDeleteConfirmOpen(false);
-          if (application) remove.mutate(application.id);
-          onClose();
-        }}
-        onCancel={() => setDeleteConfirmOpen(false)}
-      />
     </Drawer>
   );
 }

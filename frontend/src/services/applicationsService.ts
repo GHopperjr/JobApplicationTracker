@@ -165,3 +165,28 @@ export async function deleteApplication(id: string): Promise<void> {
   const { error } = await supabase.from('applications').delete().eq('id', id);
   if (error) throw toAppError(error);
 }
+
+/**
+ * ONE request, not N. Running N concurrent single-row changeStatus
+ * mutations corrupts rollback (each snapshots a cache already containing
+ * the others' writes), so bulk deliberately doesn't reuse
+ * updateApplicationStatus per row (docs/02-backend-architecture.md).
+ */
+export async function bulkUpdateStatus(
+  ids: string[],
+  status: Application['status']
+): Promise<Application[]> {
+  const { data, error } = await supabase
+    .from('applications')
+    .update({ status })
+    .in('id', ids)
+    .select();
+
+  if (error) throw toAppError(error);
+  return data ?? [];
+}
+
+export async function bulkDeleteApplications(ids: string[]): Promise<void> {
+  const { error } = await supabase.from('applications').delete().in('id', ids);
+  if (error) throw toAppError(error);
+}
