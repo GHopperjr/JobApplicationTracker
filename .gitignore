@@ -11,6 +11,7 @@ frontend/dist-ssr/
 
 # Supabase CLI local state
 backend/supabase/.temp/
+backend/supabase/.branches/
 
 # Playwright — saved auth state is a live session token, not a fixture
 frontend/e2e/.auth/

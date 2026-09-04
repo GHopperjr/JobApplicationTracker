@@ -61,13 +61,10 @@ jobs:
         run: supabase start
 
       - run: npx playwright install --with-deps chromium
+      # playwright.config.ts's webServer sets the local Supabase URL/anon
+      # key itself, so the spawned dev server never depends on this job's
+      # own env or a checked-out .env file.
       - run: npm run test:e2e
-        env:
-          # Supabase CLI's default local demo JWT/URL — identical on every
-          # machine that hasn't overridden config.toml's jwt_secret, which
-          # this project hasn't. Not a secret; safe to commit.
-          VITE_SUPABASE_URL: http://127.0.0.1:54321
-          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLWRlbW8iLCJpYXQiOjE2NDE3Njk2MDAsImV4cCI6MTc5OTUzNjAwMH0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE
 
       - uses: actions/upload-artifact@v4
         if: failure()
