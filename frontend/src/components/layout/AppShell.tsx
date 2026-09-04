@@ -44,7 +44,7 @@ export function AppShell() {
               onClick={() => setMenuOpen((open) => !open)}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
-              className="max-w-[160px] truncate rounded-md px-2 py-1 text-sm text-slate-600 transition-colors duration-100 hover:bg-slate-100"
+              className="flex h-11 max-w-[160px] items-center truncate rounded-md px-2 text-sm text-slate-600 transition-colors duration-100 hover:bg-slate-100 sm:h-auto sm:py-1"
             >
               {user?.email}
             </button>
@@ -58,7 +58,7 @@ export function AppShell() {
                 type="button"
                 role="menuitem"
                 onClick={handleSignOut}
-                className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 transition-colors duration-100 hover:bg-slate-50"
+                className="flex h-11 w-full items-center px-3 text-left text-sm text-slate-700 transition-colors duration-100 hover:bg-slate-50 sm:h-auto sm:py-1.5"
               >
                 Sign out
               </button>

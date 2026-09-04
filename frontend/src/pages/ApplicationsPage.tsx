@@ -13,6 +13,7 @@ import { useApplicationFilters } from '../hooks/useApplicationFilters';
 import { useApplicationForm } from '../hooks/useApplicationForm';
 import { useApplicationMutations } from '../hooks/useApplicationMutations';
 import { useApplications } from '../hooks/useApplications';
+import { useRealtimeApplications } from '../hooks/useRealtimeApplications';
 import { useToast } from '../hooks/useToast';
 import { DEFAULT_SORT, type Application } from '../services/applicationsService';
 
@@ -32,6 +33,8 @@ export function ApplicationsPage() {
   );
   const { formState, openEdit, close } = useApplicationForm();
   const { show } = useToast();
+
+  useRealtimeApplications(); // mounted exactly once, here
 
   // The page owns mutations and the delete-confirmation dialog — Card,
   // TableRow, and the Detail Drawer all receive onEdit/onDelete/

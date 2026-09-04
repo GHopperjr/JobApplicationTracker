@@ -11,9 +11,11 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useState } from 'react';
 import { STATUS_ORDER, type ApplicationStatus } from '../../constants/status';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import type { Application } from '../../services/applicationsService';
 import { ApplicationCard } from './ApplicationCard';
 import { KanbanColumn } from './KanbanColumn';
+import { MobileStatusTabs } from './MobileStatusTabs';
 
 type KanbanBoardProps = {
   byStatus: Record<ApplicationStatus, Application[]>;
@@ -37,6 +39,7 @@ export function KanbanBoard({
   onStatusChange,
   statusFilter = [],
 }: KanbanBoardProps) {
+  const isMobile = useIsMobile();
   const [activeApplication, setActiveApplication] = useState<Application | null>(null);
 
   // 8px activation constraint: without it, every click registers as a
@@ -69,6 +72,20 @@ export function KanbanBoard({
 
     onStatusChange(application.id, targetStatus);
   };
+
+  if (isMobile) {
+    return (
+      <MobileStatusTabs
+        byStatus={byStatus}
+        isLoading={isLoading}
+        onCardClick={onCardClick}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onStatusChange={onStatusChange}
+        statusFilter={statusFilter}
+      />
+    );
+  }
 
   return (
     <DndContext
