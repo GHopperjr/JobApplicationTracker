@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "description": "Supabase project config and migrations. Run these from inside backend/.",
   "scripts": {
-    "db:push": "supabase db push",
-    "db:reset": "supabase db reset --local",
-    "db:types": "supabase gen types typescript --linked > ../frontend/src/types/database.types.ts",
-    "db:link:dev": "supabase link --project-ref ghfaztfvmtvoxrypsumb",
-    "db:link:prod": "supabase link --project-ref qjaehpphulamxywgspuk"
+    "db:push": "npx supabase db push",
+    "db:reset": "npx supabase db reset --local",
+    "db:types": "npx supabase gen types typescript --linked > ../frontend/src/types/database.types.ts",
+    "db:link:dev": "npx supabase link --project-ref ghfaztfvmtvoxrypsumb",
+    "db:link:prod": "npx supabase link --project-ref qjaehpphulamxywgspuk"
   }
 }
