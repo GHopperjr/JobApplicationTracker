@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { ROUTES } from './constants/routes';
+import { ApplicationFormProvider } from './context/ApplicationFormProvider';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -14,7 +15,9 @@ function App() {
       <Route
         element={
           <ProtectedRoute>
-            <AppShell />
+            <ApplicationFormProvider>
+              <AppShell />
+            </ApplicationFormProvider>
           </ProtectedRoute>
         }
       >

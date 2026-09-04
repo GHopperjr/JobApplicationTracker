@@ -1,0 +1,58 @@
+import { z } from 'zod';
+import { PLATFORM_VALUES } from '../constants/platforms';
+import { STATUS_VALUES } from '../constants/status';
+import { WORK_SETUP_VALUES } from '../constants/workSetup';
+
+// Both constants are declared `as const` (readonly tuples) — z.enum() will
+// not accept a mutable string[].
+const httpUrl = z
+  .string()
+  .trim()
+  // z.url() alone accepts ftp:// and mailto:, which the database check
+  // constraint then rejects with an opaque 23514. Enforce the protocol here
+  // so the user gets the real message.
+  .refine((v) => /^https?:\/\//i.test(v), {
+    message: 'Enter a valid URL starting with http:// or https://',
+  });
+
+// Optional fields use `z.union([z.literal(''), ...])` rather than
+// `.optional()`: react-hook-form always supplies every key with a defined
+// string ('' for "empty"), it never omits a key the way `.optional()`
+// expects. Using `.optional()` here would type the field as `string |
+// undefined`, which doesn't match ApplicationFormValues (types/application.ts)
+// where every field is always a defined string — so the two intentionally
+// describe the same shape.
+export const applicationSchema = z.object({
+  company_name: z.string().trim().min(1, 'Company name is required'),
+  job_title: z.string().trim().min(1, 'Job title is required'),
+  platform_source: z.enum(PLATFORM_VALUES),
+  status: z.enum(STATUS_VALUES),
+
+  // Coerced '' -> null before reaching Postgres, in the service layer's
+  // normalizeOptionalFields. Without that step, EVERY application saved
+  // without a job link fails the check constraint.
+  job_link: z.union([z.literal(''), httpUrl]),
+  salary_range: z.string().trim().max(100),
+  location: z.string().trim().max(200),
+  work_setup: z.union([z.literal(''), z.enum(WORK_SETUP_VALUES)]),
+  applied_date: z.union([z.literal(''), z.iso.date()]),
+  notes: z.string().max(5000),
+});
+
+const wholeNumber = z.string().regex(/^\d*$/, 'Must be a whole number');
+
+// Validates the Low/High sub-fields of the salary composite control
+// (SalaryRangeField). Kept separate from `applicationSchema`: the low/high
+// split is purely a form-entry convenience, not a stored shape — the two
+// values are combined into a single string before it ever reaches
+// applicationSchema or the database (docs/01-database-schema.md keeps
+// salary_range itself as free text, e.g. "Competitive" or "DOE").
+export const salaryRangeInputSchema = z
+  .object({
+    low: wholeNumber,
+    high: wholeNumber,
+  })
+  .refine((data) => !data.low || !data.high || Number(data.high) >= Number(data.low), {
+    message: 'High must be greater than or equal to Low',
+    path: ['high'],
+  });

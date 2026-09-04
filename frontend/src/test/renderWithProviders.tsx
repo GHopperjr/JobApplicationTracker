@@ -3,8 +3,9 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
+import { ApplicationFormProvider } from '../context/ApplicationFormProvider';
+import { ToastProvider } from '../context/ToastContext';
 
-// TODO(Phase 2): wrap with ToastProvider once it exists (docs/07-component-specifications.md).
 export function renderWithProviders(ui: ReactElement, { route = '/applications' } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -18,7 +19,11 @@ export function renderWithProviders(ui: ReactElement, { route = '/applications' 
     ...render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+          <ToastProvider>
+            <ApplicationFormProvider>
+              <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+            </ApplicationFormProvider>
+          </ToastProvider>
         </AuthProvider>
       </QueryClientProvider>
     ),
