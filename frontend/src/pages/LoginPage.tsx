@@ -57,7 +57,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
         <h1 className="mb-6 text-xl font-semibold text-slate-900">Job Application Tracker</h1>
 
@@ -104,6 +104,6 @@ export function LoginPage() {
           {mode === 'sign-in' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
         </button>
       </div>
-    </div>
+    </main>
   );
 }
