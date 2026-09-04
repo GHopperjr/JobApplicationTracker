@@ -1,6 +1,28 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AppShell } from './components/layout/AppShell';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { ROUTES } from './constants/routes';
+import { ApplicationsPage } from './pages/ApplicationsPage';
+import { LoginPage } from './pages/LoginPage';
+import { NotFoundPage } from './pages/NotFoundPage';
+
 function App() {
   return (
-    <div className="min-h-screen bg-slate-50" />
+    <Routes>
+      <Route path="/" element={<Navigate to={ROUTES.applications} replace />} />
+      <Route path={ROUTES.login} element={<LoginPage />} />
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      >
+        <Route path={ROUTES.applications} element={<ApplicationsPage />} />
+        <Route path="/applications/:id" element={<ApplicationsPage />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }
 

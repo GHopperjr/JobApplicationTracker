@@ -1,10 +1,10 @@
-import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import App from './App';
+import { renderWithProviders } from './test/renderWithProviders';
 
 describe('App', () => {
-  it('renders without crashing', () => {
-    const { container } = render(<App />);
-    expect(container.firstChild).not.toBeNull();
+  it('renders the login page when signed out', async () => {
+    const { findByLabelText } = renderWithProviders(<App />, { route: '/login' });
+    expect(await findByLabelText(/email/i)).toBeInTheDocument();
   });
 });
