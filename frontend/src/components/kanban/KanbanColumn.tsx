@@ -9,9 +9,10 @@ type KanbanColumnProps = {
   status: ApplicationStatus;
   applications: Application[];
   isLoading?: boolean;
+  onCardClick: (id: string) => void;
 };
 
-export function KanbanColumn({ status, applications, isLoading }: KanbanColumnProps) {
+export function KanbanColumn({ status, applications, isLoading, onCardClick }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: isLoading });
 
   return (
@@ -25,7 +26,10 @@ export function KanbanColumn({ status, applications, isLoading }: KanbanColumnPr
       <div
         ref={setNodeRef}
         data-testid={`column-${status}`}
-        className={cn('flex min-h-[120px] flex-1 flex-col gap-2 rounded-md p-1', isOver && 'bg-slate-100')}
+        className={cn(
+          'flex min-h-[120px] flex-1 flex-col gap-2 rounded-md p-1 transition-colors duration-100',
+          isOver && 'bg-slate-100'
+        )}
       >
         {isLoading ? (
           <Skeleton variant="card" count={3} />
@@ -33,7 +37,7 @@ export function KanbanColumn({ status, applications, isLoading }: KanbanColumnPr
           <p className="px-2 py-1 text-xs text-slate-500">Nothing here yet.</p>
         ) : (
           applications.map((application) => (
-            <ApplicationCard key={application.id} application={application} />
+            <ApplicationCard key={application.id} application={application} onView={onCardClick} />
           ))
         )}
       </div>

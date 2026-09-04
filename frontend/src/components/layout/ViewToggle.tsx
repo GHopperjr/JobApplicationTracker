@@ -20,7 +20,7 @@ export function ViewToggle({ view, onChange }: ViewToggleProps) {
           aria-pressed={view === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            'rounded px-3 py-1 text-sm font-medium transition-colors',
+            'rounded px-3 py-1 text-sm font-medium transition-colors duration-100',
             view === option.value
               ? 'bg-slate-900 text-white'
               : 'text-slate-600 hover:bg-slate-100'

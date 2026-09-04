@@ -2,37 +2,26 @@ import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { createPortal } from 'react-dom';
 
-type ModalProps = {
+type DrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
-  footer?: ReactNode;
-  closeOnBackdrop?: boolean;
 };
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  children,
-  footer,
-  closeOnBackdrop = true,
-}: ModalProps) {
+export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const prefersReducedMotion = useReducedMotion();
-  const duration = prefersReducedMotion ? 0 : 0.15;
+  const duration = prefersReducedMotion ? 0 : 0.2;
 
-  // A ref, not a dependency: `onClose` is a fresh function on every render of
-  // the caller (e.g. ApplicationFormModal's `requestClose`), and including it
-  // in the effect's dependency array below re-ran the whole focus-trap setup
-  // — including the initial `.focus()` call — on every keystroke, stealing
-  // focus back to the first focusable element each time.
+  // A ref, not a dependency — see the identical note in ui/Modal.tsx. Without
+  // it, a fresh-every-render onClose re-runs this setup (including the
+  // initial .focus() call) on every keystroke inside the drawer.
   const onCloseRef = useRef(onClose);
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -77,10 +66,10 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-40">
           <motion.div
             className="absolute inset-0 bg-slate-900/20"
-            onClick={closeOnBackdrop ? onClose : undefined}
+            onClick={onClose}
             aria-hidden="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -92,10 +81,10 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="relative flex max-h-[85vh] w-full max-w-lg flex-col rounded-lg bg-white shadow-lg"
-            initial={{ opacity: 0, scale: 0.99 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.99 }}
+            className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col rounded-l-lg bg-white shadow-lg"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ duration, ease: 'easeOut' }}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
@@ -111,8 +100,7 @@ export function Modal({
                 ✕
               </button>
             </div>
-            <div className="overflow-y-auto px-4 py-4">{children}</div>
-            {footer && <div className="border-t border-slate-200 px-4 py-3">{footer}</div>}
+            <div className="flex-1 overflow-y-auto">{children}</div>
           </motion.div>
         </div>
       )}

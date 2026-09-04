@@ -1,7 +1,8 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { DropdownMenu } from '../../components/ui/DropdownMenu';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import { useApplicationForm } from '../../hooks/useApplicationForm';
 import { useApplicationMutations } from '../../hooks/useApplicationMutations';
@@ -14,15 +15,18 @@ type ApplicationCardProps = {
   application: Application;
   /** True only for the copy rendered inside <DragOverlay> — the "flying" card. */
   isOverlay?: boolean;
+  /** Omitted for the overlay copy, which never receives interaction. */
+  onView?: (id: string) => void;
 };
 
-function ApplicationCardImpl({ application, isOverlay = false }: ApplicationCardProps) {
+function ApplicationCardImpl({ application, isOverlay = false, onView }: ApplicationCardProps) {
   const { openEdit } = useApplicationForm();
   const { show } = useToast();
   const { remove } = useApplicationMutations({
     onDeleted: () => show('Application deleted.'),
   });
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -62,15 +66,15 @@ function ApplicationCardImpl({ application, isOverlay = false }: ApplicationCard
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
-            openEdit(application);
+            onView?.(application.id);
             return;
           }
           dragKeyDown?.(e as unknown as KeyboardEvent & { currentTarget: EventTarget });
         }}
-        onClick={() => openEdit(application)}
+        onClick={() => onView?.(application.id)}
         {...(isOverlay ? {} : pointerListeners)}
         className={cn(
-          'group relative rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition-colors',
+          'group relative rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition-colors duration-100',
           'hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2',
           isOverlay && 'rotate-1 border-slate-300 shadow-lg opacity-90'
         )}
@@ -89,8 +93,9 @@ function ApplicationCardImpl({ application, isOverlay = false }: ApplicationCard
           <h3 className="flex-1 truncate text-sm font-semibold text-slate-900">
             {application.company_name}
           </h3>
-          <div className="relative shrink-0">
+          <div className="shrink-0">
             <button
+              ref={menuTriggerRef}
               type="button"
               aria-label={`Actions for ${application.company_name}`}
               aria-expanded={menuOpen}
@@ -99,40 +104,39 @@ function ApplicationCardImpl({ application, isOverlay = false }: ApplicationCard
                 e.stopPropagation();
                 setMenuOpen((open) => !open);
               }}
-              className="rounded-md px-1.5 py-0.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-md px-1.5 py-0.5 text-slate-500 transition-colors duration-100 hover:bg-slate-100 hover:text-slate-700"
             >
               ⋮
             </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                onClick={(e) => e.stopPropagation()}
-                className="absolute right-0 z-10 mt-1 w-32 rounded-md border border-slate-200 bg-white py-1 text-left shadow-lg"
+            <DropdownMenu
+              isOpen={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              triggerRef={menuTriggerRef}
+              className="w-32 text-left"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openEdit(application);
+                }}
+                className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 transition-colors duration-100 hover:bg-slate-50"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    openEdit(application);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleteConfirmOpen(true);
-                  }}
-                  className="block w-full px-3 py-1.5 text-left text-sm text-rose-600 hover:bg-slate-50"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+                Edit
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
+                className="block w-full px-3 py-1.5 text-left text-sm text-rose-600 transition-colors duration-100 hover:bg-slate-50"
+              >
+                Delete
+              </button>
+            </DropdownMenu>
           </div>
         </div>
 
