@@ -20,9 +20,14 @@ import { KanbanColumn } from './KanbanColumn';
 type KanbanBoardProps = {
   byStatus: Record<ApplicationStatus, Application[]>;
   isLoading?: boolean;
+  onCardClick: (id: string) => void;
+  /** When non-empty, columns not in this list are hidden entirely rather
+   * than rendered empty (docs/05 F7) — an empty status filter means "show
+   * every column", not "show none". */
+  statusFilter?: ApplicationStatus[];
 };
 
-export function KanbanBoard({ byStatus, isLoading }: KanbanBoardProps) {
+export function KanbanBoard({ byStatus, isLoading, onCardClick, statusFilter = [] }: KanbanBoardProps) {
   const { show } = useToast();
   const { changeStatus } = useApplicationMutations({
     onStatusError: () => show("Couldn't update status. Please try again.", 'error'),
@@ -39,6 +44,9 @@ export function KanbanBoard({ byStatus, isLoading }: KanbanBoardProps) {
   );
 
   const allApplications = STATUS_ORDER.flatMap((status) => byStatus[status]);
+  const visibleStatuses = statusFilter.length
+    ? STATUS_ORDER.filter((s) => statusFilter.includes(s))
+    : STATUS_ORDER;
 
   const handleDragStart = (event: DragStartEvent) => {
     const application = allApplications.find((a) => a.id === event.active.id);
@@ -65,12 +73,13 @@ export function KanbanBoard({ byStatus, isLoading }: KanbanBoardProps) {
       onDragCancel={() => setActiveApplication(null)}
     >
       <div className="flex gap-4 overflow-x-auto px-6 py-4">
-        {STATUS_ORDER.map((status) => (
+        {visibleStatuses.map((status) => (
           <KanbanColumn
             key={status}
             status={status}
             applications={byStatus[status]}
             isLoading={isLoading}
+            onCardClick={onCardClick}
           />
         ))}
       </div>
