@@ -1,0 +1,12 @@
+{
+  "name": "job-application-tracker-backend",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Supabase project config and migrations. Run these from inside backend/.",
+  "scripts": {
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset --local",
+    "db:types": "supabase gen types typescript --project-id ghfaztfvmtvoxrypsumb > ../frontend/src/types/database.types.ts",
+    "db:link": "supabase link --project-ref ghfaztfvmtvoxrypsumb"
+  }
+}

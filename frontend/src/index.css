@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* docs/04-design-system.md: one typeface (Inter), system fallback stack. */
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Numerals in tables/dates align vertically. See docs/04-design-system.md. */
+body {
+  font-variant-numeric: tabular-nums;
+}
