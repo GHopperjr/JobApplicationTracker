@@ -1,10 +1,22 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { ROUTES } from '../../constants/routes';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, sessionExpired, clearSessionExpired } = useAuth();
+  const { show } = useToast();
+
+  // The redirect below fires as soon as `session` goes null; this just adds
+  // the notice docs/05 F8 specifies for the "expired" case specifically, as
+  // opposed to a deliberate sign-out (which needs no explanation).
+  useEffect(() => {
+    if (sessionExpired) {
+      show('Your session expired. Please sign in again.', 'error');
+      clearSessionExpired();
+    }
+  }, [sessionExpired, show, clearSessionExpired]);
 
   // Must be handled explicitly: rendering <Navigate> while the session is
   // still being restored from storage bounces an already-signed-in user to
