@@ -6,7 +6,8 @@
   "scripts": {
     "db:push": "supabase db push",
     "db:reset": "supabase db reset --local",
-    "db:types": "supabase gen types typescript --project-id ghfaztfvmtvoxrypsumb > ../frontend/src/types/database.types.ts",
-    "db:link": "supabase link --project-ref ghfaztfvmtvoxrypsumb"
+    "db:types": "supabase gen types typescript --linked > ../frontend/src/types/database.types.ts",
+    "db:link:dev": "supabase link --project-ref ghfaztfvmtvoxrypsumb",
+    "db:link:prod": "supabase link --project-ref qjaehpphulamxywgspuk"
   }
 }
