@@ -1,13 +1,16 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
+import { ROUTES } from '../../constants/routes';
 import { useApplicationFilters } from '../../hooks/useApplicationFilters';
 import { useApplicationForm } from '../../hooks/useApplicationForm';
 import { useAuth } from '../../hooks/useAuth';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { Button } from '../ui/Button';
+import { Drawer } from '../ui/Drawer';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { OfflineBanner } from './OfflineBanner';
+import { Sidebar, SidebarNav } from './Sidebar';
 import { ViewToggle } from './ViewToggle';
 
 export function AppShell() {
@@ -15,13 +18,20 @@ export function AppShell() {
   const { openCreate } = useApplicationForm();
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const { view, setView, filters } = useApplicationFilters();
   const isMobile = useIsMobile();
+  const { pathname } = useLocation();
+
+  // The header's view toggle and Add button belong to the Job Applications
+  // page, not the shell — Settings shares this header and has neither.
+  const isApplicationsPage = pathname.startsWith(ROUTES.applications);
+  const title = isApplicationsPage ? 'Job Applications' : 'Settings';
   // The archive view is table-only (docs/05 F9) — a Kanban board of
   // applications that aren't in the pipeline is a contradiction, so the
   // toggle that would switch to it is hidden rather than disabled.
-  const showViewToggle = filters.archived !== 'archived';
+  const showViewToggle = isApplicationsPage && filters.archived !== 'archived';
 
   const handleSignOut = async () => {
     setMenuOpen(false);
@@ -74,53 +84,79 @@ export function AppShell() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Wraps to two rows below 768px — title + icon-only Add on the first,
-          ViewToggle full-width on the second — rather than shrinking every
-          control until it's unreadable (docs/07-component-specifications.md). */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md">
-        {isMobile ? (
-          <div className="flex flex-col gap-2 px-4 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <h1 className="text-lg font-semibold text-slate-900">Applications</h1>
-              <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  variant="primary"
-                  onClick={openCreate}
-                  aria-label="Add application"
-                  className="w-11 px-0 text-base"
-                >
-                  +
-                </Button>
+    <div className="flex min-h-screen bg-slate-50">
+      {/* Below 768px a persistent sidebar would eat half the screen, so the
+          nav moves into the same bottom-sheet Drawer every other overlay in
+          this app uses on mobile (docs/11-navigation-and-distance.md). */}
+      {!isMobile && <Sidebar />}
+
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md">
+          {isMobile ? (
+            <div className="flex flex-col gap-2 px-4 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setNavOpen(true)}
+                    aria-label="Open navigation"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100"
+                  >
+                    ☰
+                  </button>
+                  <h1 className="truncate text-lg font-semibold text-slate-900">{title}</h1>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {isApplicationsPage && (
+                    <Button
+                      variant="primary"
+                      onClick={openCreate}
+                      aria-label="Add application"
+                      className="w-11 px-0 text-base"
+                    >
+                      +
+                    </Button>
+                  )}
+                  {accountMenu}
+                </div>
+              </div>
+              {showViewToggle && <ViewToggle view={view} onChange={setView} />}
+            </div>
+          ) : (
+            <div className="flex h-14 items-center justify-between px-6">
+              <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+
+              {showViewToggle ? (
+                <ViewToggle view={view} onChange={setView} />
+              ) : (
+                isApplicationsPage && (
+                  <span className="text-sm font-medium text-slate-600">Archive</span>
+                )
+              )}
+
+              <div className="flex items-center gap-3">
+                {isApplicationsPage && (
+                  <Button variant="primary" onClick={openCreate}>
+                    + Add Application
+                  </Button>
+                )}
                 {accountMenu}
               </div>
             </div>
-            {showViewToggle && <ViewToggle view={view} onChange={setView} />}
-          </div>
-        ) : (
-          <div className="flex h-14 items-center justify-between px-6">
-            <h1 className="text-xl font-semibold text-slate-900">Applications</h1>
+          )}
+          <OfflineBanner />
+        </header>
 
-            {showViewToggle ? (
-              <ViewToggle view={view} onChange={setView} />
-            ) : (
-              <span className="text-sm font-medium text-slate-600">Archive</span>
-            )}
+        <main>
+          <Outlet />
+        </main>
+      </div>
 
-            <div className="flex items-center gap-3">
-              <Button variant="primary" onClick={openCreate}>
-                + Add Application
-              </Button>
-              {accountMenu}
-            </div>
-          </div>
-        )}
-        <OfflineBanner />
-      </header>
-
-      <main>
-        <Outlet />
-      </main>
+      <Drawer isOpen={navOpen} onClose={() => setNavOpen(false)} title="Menu">
+        <div className="px-3 py-3">
+          <SidebarNav onNavigate={() => setNavOpen(false)} />
+        </div>
+      </Drawer>
     </div>
   );
 }
