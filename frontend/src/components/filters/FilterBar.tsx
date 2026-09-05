@@ -7,6 +7,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import { cn } from '../../lib/cn';
 import type { ApplicationFilters } from '../../services/applicationsService';
 import { Button } from '../ui/Button';
+import { Chip } from '../ui/Chip';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { Modal } from '../ui/Modal';
 import { PlatformFilter } from './PlatformFilter';
@@ -116,24 +117,18 @@ function ChipDropdown({
   const triggerRef = useRef<HTMLButtonElement>(null);
   return (
     <div>
-      <button
+      <Chip
         ref={triggerRef}
-        type="button"
+        active={highlighted}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         onClick={() => onOpenChange(!isOpen)}
-        className={cn(
-          'flex h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors duration-100 sm:h-auto sm:py-1',
-          highlighted
-            ? 'border-slate-900 bg-slate-900 text-white'
-            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-        )}
       >
         {label}
         <span aria-hidden="true" className="text-[9px]">
           ▾
         </span>
-      </button>
+      </Chip>
       <DropdownMenu
         isOpen={isOpen}
         onClose={() => onOpenChange(false)}
@@ -197,19 +192,9 @@ export function FilterBar({
   };
 
   const staleChip = staleThresholdDays !== null && (
-    <button
-      type="button"
-      aria-pressed={showStaleOnly}
-      onClick={onToggleStaleOnly}
-      className={cn(
-        'h-11 shrink-0 rounded-full border px-3 text-xs font-medium transition-colors duration-100 sm:h-auto sm:py-1',
-        showStaleOnly
-          ? 'border-slate-900 bg-slate-900 text-white'
-          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-      )}
-    >
+    <Chip active={showStaleOnly} aria-pressed={showStaleOnly} onClick={onToggleStaleOnly}>
       Needs follow-up · {staleCount}
-    </button>
+    </Chip>
   );
 
   const searchInput = (
@@ -296,20 +281,14 @@ export function FilterBar({
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {ARCHIVED_OPTIONS.map((option) => (
-                  <button
+                  <Chip
                     key={option.value}
-                    type="button"
+                    active={archived === option.value}
                     aria-pressed={archived === option.value}
                     onClick={() => onChange({ archived: option.value })}
-                    className={cn(
-                      'min-h-11 rounded-full border px-3 text-xs font-medium transition-colors duration-100',
-                      archived === option.value
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    )}
                   >
                     {option.label}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -319,20 +298,14 @@ export function FilterBar({
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {THRESHOLD_OPTIONS.map((option) => (
-                  <button
+                  <Chip
                     key={String(option.value)}
-                    type="button"
+                    active={staleThresholdDays === option.value}
                     aria-pressed={staleThresholdDays === option.value}
                     onClick={() => onChangeStaleThreshold(option.value)}
-                    className={cn(
-                      'min-h-11 rounded-full border px-3 text-xs font-medium transition-colors duration-100',
-                      staleThresholdDays === option.value
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    )}
                   >
                     {option.label}
-                  </button>
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -341,36 +314,30 @@ export function FilterBar({
                 Data
               </p>
               <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
+                <Chip
                   onClick={() => {
                     setFiltersOpen(false);
                     onExportCurrent();
                   }}
-                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
                   Export CSV
-                </button>
-                <button
-                  type="button"
+                </Chip>
+                <Chip
                   onClick={() => {
                     setFiltersOpen(false);
                     onExportAll();
                   }}
-                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
                   Export all as CSV
-                </button>
-                <button
-                  type="button"
+                </Chip>
+                <Chip
                   onClick={() => {
                     setFiltersOpen(false);
                     onOpenImport();
                   }}
-                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
                 >
                   Import CSV
-                </button>
+                </Chip>
               </div>
             </div>
           </div>
