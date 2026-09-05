@@ -5,6 +5,7 @@ import { Navigate } from 'react-router-dom';
 import { z } from 'zod';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { SegmentedToggle } from '../components/ui/SegmentedToggle';
 import { ROUTES } from '../constants/routes';
 import { useAuth } from '../hooks/useAuth';
 import { AppError } from '../services/errors';
@@ -19,6 +20,16 @@ const credentialsSchema = z.object({
 type CredentialsValues = z.infer<typeof credentialsSchema>;
 
 type Mode = 'sign-in' | 'sign-up';
+
+const MODE_OPTIONS: { value: Mode; label: string }[] = [
+  { value: 'sign-in', label: 'Sign in' },
+  { value: 'sign-up', label: 'Sign up' },
+];
+
+const MODE_SUBTITLE: Record<Mode, string> = {
+  'sign-in': 'Sign in to your account',
+  'sign-up': 'Create an account to get started',
+};
 
 export function LoginPage() {
   const { session, isLoading, signIn, signUp } = useAuth();
@@ -50,23 +61,40 @@ export function LoginPage() {
     }
   };
 
-  const switchMode = () => {
-    setMode((m) => (m === 'sign-in' ? 'sign-up' : 'sign-in'));
+  const switchMode = (next: Mode) => {
+    setMode(next);
     setFormError(null);
     setConfirmationSent(false);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
-        <h1 className="mb-6 text-xl font-semibold text-slate-900">Job Application Tracker</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Job Application Tracker</h1>
+        {/* A dedicated subtitle, not just the button label, so the two modes
+            read as distinct screens rather than one form with a small
+            difference somewhere in it. */}
+        <p className="mt-1 mb-6 text-sm text-slate-600">{MODE_SUBTITLE[mode]}</p>
+
+        <SegmentedToggle
+          ariaLabel="Sign in or create an account"
+          options={MODE_OPTIONS}
+          value={mode}
+          onChange={switchMode}
+          className="mb-6"
+        />
 
         {confirmationSent ? (
           <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
             Check your email to confirm your account.
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="space-y-4"
+            noValidate
+            data-testid="credentials-form"
+          >
             <Input
               label="Email"
               type="email"
@@ -95,15 +123,7 @@ export function LoginPage() {
             </Button>
           </form>
         )}
-
-        <button
-          type="button"
-          onClick={switchMode}
-          className="mt-4 text-xs text-slate-500 hover:text-slate-700"
-        >
-          {mode === 'sign-in' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-        </button>
       </div>
-    </div>
+    </main>
   );
 }
