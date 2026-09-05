@@ -43,6 +43,7 @@ the code should be built from.
 | 09 | [`09-operations.md`](./09-operations.md) | Dev/prod environments, local Supabase loop, migrations workflow, deployment, error tracking, security headers, free-tier limits |
 | 10 | [`10-data-import-export.md`](./10-data-import-export.md) | CSV export, and the four-step CSV import flow with column mapping, validation, and partial-failure handling |
 | 11 | [`11-navigation-and-distance.md`](./11-navigation-and-distance.md) | Sidebar navigation shell, Settings page, saved locations, and the zero-cost distance/driving-ETA calculator |
+| 12 | [`12-interview-metrics.md`](./12-interview-metrics.md) | Metrics page: application pace against a monthly goal, status snapshot, conversion funnel from status history, and effectiveness by platform |
 
 ## Project at a glance
 
