@@ -11,12 +11,14 @@ function stubFetch(implementation: () => Promise<unknown> | never) {
   return fetchMock;
 }
 
+const featureCollection = (coordinates: [number, number]) => ({
+  type: 'FeatureCollection',
+  features: [{ type: 'Feature', geometry: { type: 'Point', coordinates } }],
+});
+
 describe('geocodeAddress', () => {
-  it('returns the first result’s coordinates as numbers', async () => {
-    stubFetch(async () => ({
-      ok: true,
-      json: async () => [{ lat: '14.5995', lon: '120.9842' }],
-    }));
+  it('returns the first feature’s coordinates, un-reversing GeoJSON’s lng-first order', async () => {
+    stubFetch(async () => ({ ok: true, json: async () => featureCollection([120.9842, 14.5995]) }));
 
     await expect(geocodeAddress('Manila City Hall')).resolves.toEqual({
       latitude: 14.5995,
@@ -24,23 +26,26 @@ describe('geocodeAddress', () => {
     });
   });
 
-  it('asks Nominatim for a single result — there is no "did you mean?" list', async () => {
-    const fetchMock = stubFetch(async () => ({ ok: true, json: async () => [] }));
+  it('asks Photon for a single result — there is no "did you mean?" list', async () => {
+    const fetchMock = stubFetch(async () => ({
+      ok: true,
+      json: async () => ({ type: 'FeatureCollection', features: [] }),
+    }));
 
     await geocodeAddress('123 Rizal Street, Makati');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://nominatim.openstreetmap.org/search?q=123%20Rizal%20Street%2C%20Makati&format=jsonv2&limit=1'
+      'https://photon.komoot.io/api/?q=123%20Rizal%20Street%2C%20Makati&limit=1'
     );
   });
 
   it('returns null when the address resolves to nothing', async () => {
-    stubFetch(async () => ({ ok: true, json: async () => [] }));
+    stubFetch(async () => ({ ok: true, json: async () => ({ type: 'FeatureCollection', features: [] }) }));
     await expect(geocodeAddress('Remote')).resolves.toBeNull();
   });
 
   it('returns null on a non-200 rather than throwing', async () => {
-    stubFetch(async () => ({ ok: false, json: async () => [] }));
+    stubFetch(async () => ({ ok: false, json: async () => ({}) }));
     await expect(geocodeAddress('Anywhere')).resolves.toBeNull();
   });
 
@@ -52,7 +57,7 @@ describe('geocodeAddress', () => {
   });
 
   it('makes no request at all for an empty address', async () => {
-    const fetchMock = stubFetch(async () => ({ ok: true, json: async () => [] }));
+    const fetchMock = stubFetch(async () => ({ ok: true, json: async () => ({ features: [] }) }));
 
     await expect(geocodeAddress('   ')).resolves.toBeNull();
 

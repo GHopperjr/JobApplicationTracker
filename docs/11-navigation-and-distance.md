@@ -52,7 +52,7 @@ to configure in Vercel and GitHub. Both services chosen below need neither.
 
 | Service | Used for | Cost | Account needed | Key needed |
 |---|---|---|---|---|
-| Nominatim (OpenStreetMap) | Address → coordinates | $0 | No | No |
+| Photon (OpenStreetMap, komoot.io) | Address → coordinates | $0 | No | No |
 | OSRM (public demo server) | Driving distance + duration | $0 | No | No |
 
 Both are community-run public endpoints with usage policies rather than contracts. That trade is
@@ -245,38 +245,40 @@ Regenerate `database.types.ts` after both migrations and commit it.
 
 ---
 
-## Geocoding — Nominatim
+## Geocoding — Photon
+
+**Corrected after implementation — the original spec named Nominatim here, and it does not work.**
+Nominatim's public server sends no `Access-Control-Allow-Origin` header at all (verified directly
+against the live endpoint), so a browser `fetch()` to it is blocked by CORS on every call, always.
+Because this feature's contract is "never throw, just return no coordinates," that failure was
+silent — every address appeared to simply not resolve, with no error anywhere. **Photon**
+(`photon.komoot.io`) replaces it: same OSM data, same no-API-key/no-billing profile, and it does
+send `Access-Control-Allow-Origin: *`.
 
 ### The request
 
 ```
-GET https://nominatim.openstreetmap.org/search
+GET https://photon.komoot.io/api/
       ?q=<uri-encoded address>
-      &format=jsonv2
       &limit=1
 ```
 
-The first result's `lat` and `lon` are taken; anything else in the response is discarded. `limit=1`
-is deliberate — this feature does not offer the user a "did you mean?" list of candidate addresses.
-It either resolves to one point or it does not resolve.
+The response is GeoJSON. The first feature's `geometry.coordinates` is taken as `[longitude,
+latitude]` — **GeoJSON order, the reverse of a `lat`/`lon` pair** and the same trap OSRM's own
+coordinate order is. Anything else in the response is discarded. `limit=1` is deliberate — this
+feature does not offer the user a "did you mean?" list of candidate addresses. It either resolves
+to one point or it does not resolve.
 
 ### Usage policy compliance
 
-Nominatim's public server is free with conditions, all of which this feature meets:
+Photon's public server is free for reasonable use, with no API key or account, the same spirit as
+OSRM's public demo server below:
 
 | Requirement | How it is met |
 |---|---|
-| Max 1 request/second | Trivially — requests are user-initiated and rare (see *Request volume*) |
-| Identify the application | Via the `Referer` header the browser sends automatically |
+| Reasonable request volume | Trivially — requests are user-initiated and rare (see *Request volume*) |
 | No bulk geocoding | Never more than one address per user action |
-| Attribution | "© OpenStreetMap contributors" credited in the Settings page footer, beside the saved-locations list |
-
-**The `User-Agent` header cannot be set from a browser** — it is a
-[forbidden header name](https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name),
-and any attempt to set it from `fetch` is silently dropped. Nominatim's policy accounts for this by
-accepting the `Referer` header for browser-based clients, which Vercel-served pages send on their
-own. **Do not waste time trying to set a custom `User-Agent`; it will appear to work in code and do
-nothing in the browser.**
+| Attribution | "© OpenStreetMap contributors" credited in the Settings page footer, beside the saved-locations list — Photon's underlying data is OSM's, same as Nominatim's would have been |
 
 ### Content Security Policy
 
@@ -289,7 +291,7 @@ Supabase URL during the first production deploy.
 connect-src 'self'
             https://*.supabase.co
             wss://*.supabase.co
-            https://nominatim.openstreetmap.org
+            https://photon.komoot.io
             https://router.project-osrm.org;
 ```
 
@@ -309,7 +311,7 @@ from — reads coordinates that already exist and calls no external API at all.
 
 **Geocoding never blocks the write it accompanies.** The application or saved location is inserted
 first; the geocode is attempted after, and its result is patched onto the row if it succeeds. A
-Nominatim outage, a rate-limit rejection, or an unresolvable address leaves `latitude`/`longitude`
+Photon outage, a rate-limit rejection, or an unresolvable address leaves `latitude`/`longitude`
 null and produces no error toast. The user's data is saved either way. This is a feature that
 enhances a row, not a validation step that can reject one.
 
@@ -409,7 +411,7 @@ honest about what it actually knows.
 
 The reason two community-run endpoints are an acceptable dependency:
 
-| Event | Nominatim calls | OSRM calls | Frequency |
+| Event | Photon calls | OSRM calls | Frequency |
 |---|---|---|---|
 | Add/edit a saved location | 1 | 0 | A handful of times, ever |
 | Add an application | 1 | 0 | A few per week during an active search |
@@ -480,7 +482,7 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 | File | Responsibility |
 |---|---|
 | `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion |
-| `services/geocodingService.ts` | The single Nominatim call. Returns `Coordinates \| null` — never throws |
+| `services/geocodingService.ts` | The single Photon call. Returns `Coordinates \| null` — never throws |
 | `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns seconds \| null |
 | `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`. Pure functions, no I/O |
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
@@ -523,7 +525,7 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 
 **Non-negotiable, in the sense [08](./08-testing-and-ci.md) uses the term:**
 
-> **A failed geocode never blocks the write.** Mock Nominatim to reject, create an application with
+> **A failed geocode never blocks the write.** Mock Photon to reject, create an application with
 > a location, and assert the application row still exists with null coordinates. Without this, an
 > outage of a free third-party service becomes an outage of the app's core function.
 
@@ -537,9 +539,15 @@ this adequately.
 
 - **CSP blocks both hosts by default.** Add them to `connect-src` in `vercel.json` in the same
   change that adds the first call, or production silently breaks while local development works.
-- **`User-Agent` cannot be set from the browser.** Rely on `Referer`. Code that appears to set it is
-  dead code.
-- **OSRM takes `lng,lat`; everything else here uses `lat,lng`.** Flip in one place only.
+- **A geocoder without CORS support cannot be called from a browser at all, and the failure is
+  silent.** This is what happened with the originally-specified Nominatim: no
+  `Access-Control-Allow-Origin` header, so every call failed, and because this feature's contract is
+  "never throw," it looked exactly like every address just failing to resolve. Before adopting any
+  geocoder here, confirm `Access-Control-Allow-Origin` is actually present on a real response —
+  a working `curl` request proves nothing about browser usability.
+- **OSRM takes `lng,lat`; Photon's GeoJSON response is also `[lng, lat]`; everything else here
+  (storage, saved locations, application coordinates) uses `lat, lng`.** Flip in exactly one place
+  per API, never inline at a call site.
 - **Coordinates are nullable and frequently null.** Every read path needs the null branch — this is
   the normal case for remote roles, not an edge case.
 - **Do not cache the ETA.** It is a per-pair value; caching it introduces an invalidation problem
