@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { Application } from '../../services/applicationsService';
+import { renderWithProviders } from '../../test/renderWithProviders';
 import { ApplicationCard } from './ApplicationCard';
 
 const mockApplication = {
@@ -19,7 +20,9 @@ describe('ApplicationCard', () => {
     const user = userEvent.setup();
     const onView = vi.fn();
 
-    render(<ApplicationCard application={mockApplication} onView={onView} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    renderWithProviders(
+      <ApplicationCard application={mockApplication} onView={onView} onEdit={vi.fn()} onDelete={vi.fn()} />
+    );
 
     expect(screen.getByText('Acme Corporation')).toBeInTheDocument();
     expect(screen.getByText('Backend Developer')).toBeInTheDocument();
@@ -37,7 +40,7 @@ describe('ApplicationCard', () => {
     const onEdit = vi.fn();
     const onDelete = vi.fn();
 
-    render(
+    renderWithProviders(
       <ApplicationCard application={mockApplication} onView={onView} onEdit={onEdit} onDelete={onDelete} />
     );
 

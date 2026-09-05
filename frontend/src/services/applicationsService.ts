@@ -1,4 +1,5 @@
 import { PartialImportError, toAppError } from './errors';
+import { geocodeAddress } from './geocodingService';
 import { supabase } from './supabaseClient';
 import type { Database } from '../types/database.types';
 
@@ -123,6 +124,41 @@ function normalizeOptionalFields<T extends Record<string, unknown>>(
   return out;
 }
 
+// Fire-and-forget, unlike savedLocationsService's awaited geocode — this is
+// the hot path (every application add/edit), and Realtime is already
+// subscribed to this table (useRealtimeApplications), so the coordinate
+// patch below reaches the UI as soon as it resolves without this function's
+// own promise ever waiting on it. A failed geocode leaves the columns null,
+// never an error (docs/11-navigation-and-distance.md).
+async function geocodeAndPatchLocation(id: string, location: string): Promise<void> {
+  // Swallows everything: nothing downstream of a fire-and-forget call has
+  // anywhere to report an error to, and an unhandled rejection here (an
+  // offline patch, say) would surface as noise for a purely optional
+  // enhancement.
+  try {
+    const coords = await geocodeAddress(location);
+    if (!coords) return;
+    await supabase
+      .from('applications')
+      .update({ location_latitude: coords.latitude, location_longitude: coords.longitude })
+      .eq('id', id);
+  } catch {
+    // A row without coordinates is a valid row — see the null branch every
+    // distance consumer already has.
+  }
+}
+
+async function clearLocationCoordinates(id: string): Promise<void> {
+  try {
+    await supabase
+      .from('applications')
+      .update({ location_latitude: null, location_longitude: null })
+      .eq('id', id);
+  } catch {
+    // Same contract as above: best-effort cleanup, never an error path.
+  }
+}
+
 export async function createApplication(input: ApplicationInsert): Promise<Application> {
   const { data, error } = await supabase
     .from('applications')
@@ -131,6 +167,7 @@ export async function createApplication(input: ApplicationInsert): Promise<Appli
     .single();
 
   if (error) throw toAppError(error);
+  if (data.location) void geocodeAndPatchLocation(data.id, data.location);
   return data;
 }
 
@@ -146,6 +183,17 @@ export async function updateApplication(
     .single();
 
   if (error) throw toAppError(error);
+
+  // Only re-geocode when `location` was actually part of this patch — an
+  // edit to notes/salary/etc. shouldn't cost a network call.
+  if ('location' in patch) {
+    if (patch.location && patch.location.trim()) {
+      void geocodeAndPatchLocation(id, patch.location);
+    } else {
+      void clearLocationCoordinates(id);
+    }
+  }
+
   return data;
 }
 
@@ -218,6 +266,12 @@ export async function bulkSetArchived(ids: string[], isArchived: boolean): Promi
  * Sequential rather than parallel: on failure, "the first N committed" must
  * be a statement bulkCreate can make truthfully, which a parallel chunk race
  * would not allow.
+ *
+ * Deliberately does not geocode imported rows' `location` — Nominatim's
+ * usage policy explicitly forbids bulk geocoding, and an import can be
+ * hundreds of rows from one user action (docs/11-navigation-and-distance.md).
+ * Imported applications simply have no distance until their location is
+ * edited by hand through the normal update path.
  */
 export async function bulkCreate(
   rows: ApplicationInsert[],

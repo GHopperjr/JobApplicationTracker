@@ -4,6 +4,7 @@ import { PLATFORM_LABELS } from '../../constants/platforms';
 import { WORK_SETUP_LABELS } from '../../constants/workSetup';
 import { formatDate } from '../../lib/format';
 import type { Application } from '../../services/applicationsService';
+import { DistanceRow } from './DistanceRow';
 import { StatusBadge } from './StatusBadge';
 import { StatusTimeline } from './StatusTimeline';
 
@@ -62,6 +63,7 @@ export function ApplicationDetailDrawer({
             <dl>
               <DetailRow label="Platform">{PLATFORM_LABELS[application.platform_source]}</DetailRow>
               {application.location && <DetailRow label="Location">{application.location}</DetailRow>}
+              <DistanceRow application={application} />
               {application.work_setup && (
                 <DetailRow label="Work setup">{WORK_SETUP_LABELS[application.work_setup]}</DetailRow>
               )}

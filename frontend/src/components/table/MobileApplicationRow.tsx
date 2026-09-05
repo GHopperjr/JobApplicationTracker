@@ -1,4 +1,5 @@
 import { ApplicationActions } from '../../components/application/ApplicationActions';
+import { DistanceBadge } from '../../components/application/DistanceBadge';
 import { StaleIndicator } from '../../components/application/StaleIndicator';
 import { StatusBadge } from '../../components/application/StatusBadge';
 import { PLATFORM_LABELS } from '../../constants/platforms';
@@ -73,11 +74,14 @@ export function MobileApplicationRow({
           <StatusBadge status={application.status} />
           <StaleIndicator application={application} thresholdDays={staleThresholdDays ?? null} />
         </div>
-        <p className="mt-1.5 truncate text-xs text-slate-500">
-          {PLATFORM_LABELS[application.platform_source]}
-          {application.location && ` · ${application.location}`}
-          {application.applied_date && ` · ${formatDate(application.applied_date)}`}
-        </p>
+        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">
+          <span className="truncate">
+            {PLATFORM_LABELS[application.platform_source]}
+            {application.location && ` · ${application.location}`}
+            {application.applied_date && ` · ${formatDate(application.applied_date)}`}
+          </span>
+          <DistanceBadge application={application} />
+        </div>
       </div>
 
       <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
