@@ -123,6 +123,17 @@ export function LoginPage() {
             </Button>
           </form>
         )}
+
+        {/* A second, contextual way to switch modes — right where a user's
+            eye already is after a failed attempt, rather than making them
+            look back up at the toggle. */}
+        <button
+          type="button"
+          onClick={() => switchMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
+          className="mt-4 text-xs text-slate-500 hover:text-slate-700"
+        >
+          {mode === 'sign-in' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+        </button>
       </div>
     </main>
   );
