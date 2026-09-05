@@ -36,3 +36,9 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   }).format(new Date(iso));
 }
+
+// 'Sep 1' — the timestamptz-safe sibling of formatCardDate, for columns like
+// created_at where `new Date(iso)` is the correct parse (not parseDateOnly).
+export function formatShortTimestamp(iso: string): string {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso));
+}
