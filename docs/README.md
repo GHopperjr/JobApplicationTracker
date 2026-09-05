@@ -24,6 +24,8 @@ the code should be built from.
    the whole build into an order that produces a working app at every checkpoint.
 7. **08–10** are read when you reach the phase that needs them: testing/CI setup (08), anything
    about running the app rather than building it (09), and the import/export flows (10).
+8. **11 onwards** are post-roadmap features — designed after the fact, built only once 00–10's
+   roadmap has fully shipped. Each is self-contained and independently deferrable.
 
 ## Document index
 
@@ -40,6 +42,10 @@ the code should be built from.
 | 08 | [`08-testing-and-ci.md`](./08-testing-and-ci.md) | Test strategy per layer, the non-negotiable tests, Playwright E2E, automated accessibility, GitHub Actions pipeline |
 | 09 | [`09-operations.md`](./09-operations.md) | Dev/prod environments, local Supabase loop, migrations workflow, deployment, error tracking, security headers, free-tier limits |
 | 10 | [`10-data-import-export.md`](./10-data-import-export.md) | CSV export, and the four-step CSV import flow with column mapping, validation, and partial-failure handling |
+| 11 | [`11-navigation-and-distance.md`](./11-navigation-and-distance.md) | Sidebar navigation shell, Settings page, saved locations, and the zero-cost distance/driving-ETA calculator |
+| 12 | [`12-interview-metrics.md`](./12-interview-metrics.md) | Metrics page: application pace against a monthly goal, status snapshot, conversion funnel from status history, and effectiveness by platform |
+| 13 | [`13-profile-and-experience-filtering.md`](./13-profile-and-experience-filtering.md) | Graduation date on the profile, career stage derived from it, per-application target audience, and the filter combining the two |
+| 14 | [`14-ai-match-scoring.md`](./14-ai-match-scoring.md) | Resume upload, pasted job descriptions, and an on-demand AI match percentage — the app's one exception to no custom backend and to zero cost |
 
 ## Project at a glance
 

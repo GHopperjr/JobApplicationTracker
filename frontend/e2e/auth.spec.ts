@@ -9,7 +9,9 @@ test('sign in, land on applications, sign out, redirected to login', async ({ pa
   await page.goto('/login');
   await page.getByLabel(/email/i).fill('test@example.com');
   await page.getByLabel(/password/i).fill('password123');
-  await page.getByRole('button', { name: /^sign in$/i }).click();
+  // Scoped to the form: the segmented mode toggle also has a "Sign in"
+  // button, so an unscoped locator matches both.
+  await page.getByTestId('credentials-form').getByRole('button', { name: /^sign in$/i }).click();
 
   await expect(page).toHaveURL(/\/applications/);
   await expect(page.getByText('Acme Corp')).toBeVisible();

@@ -1,8 +1,9 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useMotionDuration } from '../../hooks/useMotionDuration';
 import { cn } from '../../lib/cn';
 
 type DrawerProps = {
@@ -15,9 +16,8 @@ type DrawerProps = {
 export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
   const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, onClose);
   const titleId = useId();
-  const prefersReducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
-  const duration = prefersReducedMotion ? 0 : 0.2;
+  const duration = useMotionDuration(0.2);
 
   // On mobile this becomes a bottom sheet (slide up) rather than a
   // right-side panel (slide in) — docs/04-design-system.md.

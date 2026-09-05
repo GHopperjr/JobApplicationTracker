@@ -27,6 +27,23 @@ export function toAppError(error: { code?: string; message: string }): AppError 
   return new AppError(MESSAGES[code] ?? 'Something went wrong. Please try again.', code, error);
 }
 
+/** Thrown by bulkCreate when some chunks committed before a later one failed. */
+export class PartialImportError extends AppError {
+  readonly importedCount: number;
+  readonly totalCount: number;
+
+  constructor(cause: AppError, importedCount: number, totalCount: number) {
+    super(
+      `Imported ${importedCount} of ${totalCount} applications before an error occurred.`,
+      'PARTIAL_IMPORT',
+      cause
+    );
+    this.name = 'PartialImportError';
+    this.importedCount = importedCount;
+    this.totalCount = totalCount;
+  }
+}
+
 // Supabase AuthError does not carry Postgres error codes, so toAppError cannot
 // classify it — auth failures need their own mapping.
 export function toAuthError(error: { message: string; status?: number }): AppError {
@@ -43,9 +60,14 @@ export function toAuthError(error: { message: string; status?: number }): AppErr
   if (msg.includes('already registered')) {
     return new AppError('An account with that email already exists.', 'AUTH_EXISTS', error);
   }
+  // Applies identically whether this came from a sign-in or sign-up attempt
+  // — Supabase enforces one auth-request throttle per IP/project, not a
+  // separate one per endpoint. There's no exact retry time to show: the
+  // Supabase client doesn't expose the Retry-After value, only this message
+  // and a 429 status, so "a few minutes" is honest and "5 minutes" would not be.
   if (error.status === 429 || msg.includes('rate limit')) {
     return new AppError(
-      'Too many attempts. Please wait a moment and try again.',
+      "Too many attempts. This is temporary — please wait a few minutes, then try again.",
       'AUTH_RATE_LIMIT',
       error
     );
