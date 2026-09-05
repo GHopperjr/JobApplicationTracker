@@ -210,7 +210,11 @@ create policy "Users can delete their own saved locations"
   using (auth.uid() = user_id);
 ```
 
-The same `set_updated_at` before-trigger already used by `applications` is attached here too.
+An `updated_at` before-trigger is attached here too — but **a separate
+`touch_updated_at()` function, not the `set_updated_at()` used by `applications`.** That one's body
+reads `new.status` to maintain `status_changed_at`; `saved_locations` has no `status` column, so
+reusing it raises `record "new" has no field "status"` on every update. (Verified against a local
+database during implementation — this correction replaces the original instruction to reuse it.)
 
 **`latitude`/`longitude` are nullable on purpose.** A row exists as soon as the user saves it; the
 coordinates arrive from geocoding, which can fail. A location with no coordinates is still a valid,
