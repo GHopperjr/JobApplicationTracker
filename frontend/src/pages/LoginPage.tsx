@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate } from 'react-router-dom';
@@ -8,6 +9,7 @@ import { Input } from '../components/ui/Input';
 import { SegmentedToggle } from '../components/ui/SegmentedToggle';
 import { ROUTES } from '../constants/routes';
 import { useAuth } from '../hooks/useAuth';
+import { useMotionDuration } from '../hooks/useMotionDuration';
 import { AppError } from '../services/errors';
 
 const credentialsSchema = z.object({
@@ -36,6 +38,7 @@ export function LoginPage() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const duration = useMotionDuration(0.15);
 
   const {
     register,
@@ -73,8 +76,23 @@ export function LoginPage() {
         <h1 className="text-xl font-semibold text-slate-900">Job Application Tracker</h1>
         {/* A dedicated subtitle, not just the button label, so the two modes
             read as distinct screens rather than one form with a small
-            difference somewhere in it. */}
-        <p className="mt-1 mb-6 text-sm text-slate-600">{MODE_SUBTITLE[mode]}</p>
+            difference somewhere in it. Crossfades on mode change rather
+            than swapping instantly — `mode="wait"` so the old line finishes
+            leaving before the new one enters, avoiding an overlap jump. */}
+        <div className="mt-1 mb-6 h-5">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={mode}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration }}
+              className="text-sm text-slate-600"
+            >
+              {MODE_SUBTITLE[mode]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
 
         <SegmentedToggle
           ariaLabel="Sign in or create an account"
@@ -84,45 +102,68 @@ export function LoginPage() {
           className="mb-6"
         />
 
-        {confirmationSent ? (
-          <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-            Check your email to confirm your account.
-          </div>
-        ) : (
-          <form
-            onSubmit={handleSubmit(onSubmit)}
-            className="space-y-4"
-            noValidate
-            data-testid="credentials-form"
-          >
-            <Input
-              label="Email"
-              type="email"
-              required
-              autoComplete="email"
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            <Input
-              label="Password"
-              type="password"
-              required
-              autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
-              error={errors.password?.message}
-              {...register('password')}
-            />
+        <AnimatePresence mode="wait">
+          {confirmationSent ? (
+            <motion.div
+              key="confirmation"
+              initial={{ opacity: 0, scale: 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.99 }}
+              transition={{ duration }}
+              className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600"
+            >
+              Check your email to confirm your account.
+            </motion.div>
+          ) : (
+            <motion.form
+              key="form"
+              onSubmit={handleSubmit(onSubmit)}
+              initial={{ opacity: 0, scale: 0.99 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.99 }}
+              transition={{ duration }}
+              className="space-y-4"
+              noValidate
+              data-testid="credentials-form"
+            >
+              <Input
+                label="Email"
+                type="email"
+                required
+                autoComplete="email"
+                error={errors.email?.message}
+                {...register('email')}
+              />
+              <Input
+                label="Password"
+                type="password"
+                required
+                autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
+                error={errors.password?.message}
+                {...register('password')}
+              />
 
-            {formError && (
-              <p role="alert" className="text-xs text-rose-600">
-                {formError}
-              </p>
-            )}
+              <AnimatePresence>
+                {formError && (
+                  <motion.p
+                    role="alert"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration }}
+                    className="text-xs text-rose-600"
+                  >
+                    {formError}
+                  </motion.p>
+                )}
+              </AnimatePresence>
 
-            <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full">
-              {mode === 'sign-in' ? 'Sign in' : 'Sign up'}
-            </Button>
-          </form>
-        )}
+              <Button type="submit" variant="primary" isLoading={isSubmitting} className="w-full">
+                {mode === 'sign-in' ? 'Sign in' : 'Sign up'}
+              </Button>
+            </motion.form>
+          )}
+        </AnimatePresence>
 
         {/* A second, contextual way to switch modes — right where a user's
             eye already is after a failed attempt, rather than making them

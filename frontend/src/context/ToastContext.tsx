@@ -1,6 +1,7 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useMotionDuration } from '../hooks/useMotionDuration';
 import { cn } from '../lib/cn';
 import { ToastContext, type Toast, type ToastAction } from './toast-context';
 
@@ -112,7 +113,7 @@ function ToastItem({
   onPause: (id: string) => void;
   onResume: (id: string) => void;
 }) {
-  const prefersReducedMotion = useReducedMotion();
+  const duration = useMotionDuration(0.15);
 
   return (
     <motion.div
@@ -121,7 +122,7 @@ function ToastItem({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+      transition={{ duration }}
       className={cn(
         'flex w-full max-w-sm items-center gap-3 rounded-md border px-3 py-2 text-sm shadow-lg',
         toast.variant === 'success' && 'border-emerald-100 bg-emerald-50 text-emerald-700',

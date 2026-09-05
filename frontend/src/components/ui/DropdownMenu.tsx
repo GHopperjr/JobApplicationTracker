@@ -1,6 +1,7 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { useMotionDuration } from '../../hooks/useMotionDuration';
 import { cn } from '../../lib/cn';
 
 type DropdownMenuProps = {
@@ -34,8 +35,7 @@ export function DropdownMenu({
     null
   );
   const menuRef = useRef<HTMLDivElement>(null);
-  const prefersReducedMotion = useReducedMotion();
-  const duration = prefersReducedMotion ? 0 : 0.1;
+  const duration = useMotionDuration(0.1);
 
   // Reset synchronously during render (not in an effect) when isOpen goes
   // false, so a stale position never lingers into the next open.
