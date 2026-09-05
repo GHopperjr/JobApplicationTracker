@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { renderWithProviders } from '../test/renderWithProviders';
@@ -9,24 +9,28 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />, { route: '/login' });
 
+    const form = within(screen.getByTestId('credentials-form'));
     await user.type(screen.getByLabelText(/email/i), 'not-an-email');
     await user.type(screen.getByLabelText(/password/i), 'short');
-    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    await user.click(form.getByRole('button', { name: /sign in/i }));
 
     expect(await screen.findByText(/enter a valid email address/i)).toBeInTheDocument();
     expect(screen.getByText(/password must be at least 8 characters/i)).toBeInTheDocument();
   });
 
-  it('toggles between sign-in and sign-up copy', async () => {
+  it('toggles between sign-in and sign-up copy via the mode toggle', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />, { route: '/login' });
 
-    expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument();
+    const toggle = within(screen.getByRole('group', { name: /sign in or create an account/i }));
+    expect(screen.getByText(/sign in to your account/i)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /don't have an account/i }));
+    await user.click(toggle.getByRole('button', { name: /^sign up$/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^sign up$/i })).toBeInTheDocument();
+      expect(screen.getByText(/create an account to get started/i)).toBeInTheDocument();
     });
+    const form = within(screen.getByTestId('credentials-form'));
+    expect(form.getByRole('button', { name: /^sign up$/i })).toBeInTheDocument();
   });
 });
