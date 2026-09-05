@@ -45,6 +45,7 @@ the code should be built from.
 | 11 | [`11-navigation-and-distance.md`](./11-navigation-and-distance.md) | Sidebar navigation shell, Settings page, saved locations, and the zero-cost distance/driving-ETA calculator |
 | 12 | [`12-interview-metrics.md`](./12-interview-metrics.md) | Metrics page: application pace against a monthly goal, status snapshot, conversion funnel from status history, and effectiveness by platform |
 | 13 | [`13-profile-and-experience-filtering.md`](./13-profile-and-experience-filtering.md) | Graduation date on the profile, career stage derived from it, per-application target audience, and the filter combining the two |
+| 14 | [`14-ai-match-scoring.md`](./14-ai-match-scoring.md) | Resume upload, pasted job descriptions, and an on-demand AI match percentage — the app's one exception to no custom backend and to zero cost |
 
 ## Project at a glance
 
