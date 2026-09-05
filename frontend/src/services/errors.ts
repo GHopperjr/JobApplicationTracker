@@ -43,9 +43,14 @@ export function toAuthError(error: { message: string; status?: number }): AppErr
   if (msg.includes('already registered')) {
     return new AppError('An account with that email already exists.', 'AUTH_EXISTS', error);
   }
+  // Applies identically whether this came from a sign-in or sign-up attempt
+  // — Supabase enforces one auth-request throttle per IP/project, not a
+  // separate one per endpoint. There's no exact retry time to show: the
+  // Supabase client doesn't expose the Retry-After value, only this message
+  // and a 429 status, so "a few minutes" is honest and "5 minutes" would not be.
   if (error.status === 429 || msg.includes('rate limit')) {
     return new AppError(
-      'Too many attempts. Please wait a moment and try again.',
+      "Too many attempts. This is temporary — please wait a few minutes, then try again.",
       'AUTH_RATE_LIMIT',
       error
     );
