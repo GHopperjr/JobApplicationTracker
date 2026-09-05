@@ -30,6 +30,7 @@ type ApplicationDetailDrawerProps = {
   onClose: () => void;
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
+  onArchive: (application: Application) => void;
 };
 
 export function ApplicationDetailDrawer({
@@ -39,6 +40,7 @@ export function ApplicationDetailDrawer({
   onClose,
   onEdit,
   onDelete,
+  onArchive,
 }: ApplicationDetailDrawerProps) {
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={application?.company_name ?? 'Application'}>
@@ -97,6 +99,9 @@ export function ApplicationDetailDrawer({
           <div className="mt-auto flex justify-end gap-2 border-t border-slate-200 px-4 py-3">
             <Button variant="secondary" onClick={() => onEdit(application)}>
               Edit
+            </Button>
+            <Button variant="secondary" onClick={() => onArchive(application)}>
+              {application.is_archived ? 'Restore' : 'Archive'}
             </Button>
             <Button variant="destructive" onClick={() => onDelete(application)}>
               Delete

@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { memo } from 'react';
 import { ApplicationActions } from '../../components/application/ApplicationActions';
+import { StaleIndicator } from '../../components/application/StaleIndicator';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import type { ApplicationStatus } from '../../constants/status';
 import { cn } from '../../lib/cn';
@@ -20,6 +21,9 @@ type ApplicationCardProps = {
    * disabled (docs/04-design-system.md). Omitted on desktop. */
   onStatusChange?: (id: string, status: ApplicationStatus) => void;
   showMoveTo?: boolean;
+  onArchive?: (application: Application) => void;
+  /** null = stale detection turned off; no dot renders either way (docs/05 F10). */
+  staleThresholdDays?: number | null;
 };
 
 function ApplicationCardImpl({
@@ -30,6 +34,8 @@ function ApplicationCardImpl({
   onDelete,
   onStatusChange,
   showMoveTo = false,
+  onArchive,
+  staleThresholdDays = null,
 }: ApplicationCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: application.id,
@@ -94,6 +100,7 @@ function ApplicationCardImpl({
         <h3 className="flex-1 truncate text-sm font-semibold text-slate-900">
           {application.company_name}
         </h3>
+        {!isOverlay && <StaleIndicator application={application} thresholdDays={staleThresholdDays} />}
         {!isOverlay && onEdit && onDelete && (
           <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
             <ApplicationActions
@@ -102,6 +109,7 @@ function ApplicationCardImpl({
               onDelete={onDelete}
               onStatusChange={onStatusChange}
               showMoveTo={showMoveTo}
+              onArchive={onArchive}
               className="w-40 text-left"
             />
           </div>
@@ -135,6 +143,8 @@ export const ApplicationCard = memo(ApplicationCardImpl, (prev, next) => {
     prev.onEdit === next.onEdit &&
     prev.onDelete === next.onDelete &&
     prev.onStatusChange === next.onStatusChange &&
-    prev.showMoveTo === next.showMoveTo
+    prev.showMoveTo === next.showMoveTo &&
+    prev.onArchive === next.onArchive &&
+    prev.staleThresholdDays === next.staleThresholdDays
   );
 });

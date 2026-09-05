@@ -38,6 +38,35 @@ describe('useApplicationFilters', () => {
       status: ['interviewed'],
       platform: ['linkedin'],
       search: 'acme',
+      archived: 'active',
     });
+  });
+
+  it('drops a hand-edited, invalid archived value and falls back to active', () => {
+    const { result } = renderHook(() => useApplicationFilters(), {
+      wrapper: wrapper('/applications?archived=bogus'),
+    });
+
+    expect(result.current.filters.archived).toBe('active');
+  });
+
+  it('round-trips a valid archived scope from the URL', () => {
+    const { result } = renderHook(() => useApplicationFilters(), {
+      wrapper: wrapper('/applications?archived=archived'),
+    });
+
+    expect(result.current.filters.archived).toBe('archived');
+  });
+
+  it('reads the stale flag from the URL, defaulting to false', () => {
+    const { result: withoutFlag } = renderHook(() => useApplicationFilters(), {
+      wrapper: wrapper('/applications'),
+    });
+    expect(withoutFlag.current.stale).toBe(false);
+
+    const { result: withFlag } = renderHook(() => useApplicationFilters(), {
+      wrapper: wrapper('/applications?stale=1'),
+    });
+    expect(withFlag.current.stale).toBe(true);
   });
 });

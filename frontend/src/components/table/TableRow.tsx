@@ -1,4 +1,5 @@
 import { ApplicationActions } from '../../components/application/ApplicationActions';
+import { StaleIndicator } from '../../components/application/StaleIndicator';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_STYLES, type ApplicationStatus } from '../../constants/status';
 import { WORK_SETUP_LABELS } from '../../constants/workSetup';
@@ -12,6 +13,13 @@ type TableRowProps = {
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onArchive?: (application: Application) => void;
+  staleThresholdDays?: number | null;
+  /** The archive view's own muted treatment — opacity, demoted company-name
+   * weight, no drag (docs/04-design-system.md). Every row in that view is
+   * archived by construction, so this is a view-level flag, not a per-row
+   * check of `application.is_archived`. */
+  isArchiveView?: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
 };
@@ -22,6 +30,9 @@ export function TableRow({
   onEdit,
   onDelete,
   onStatusChange,
+  onArchive,
+  staleThresholdDays,
+  isArchiveView = false,
   selected,
   onToggleSelect,
 }: TableRowProps) {
@@ -32,7 +43,8 @@ export function TableRow({
       onClick={() => onRowClick(application.id)}
       className={cn(
         'cursor-pointer border-b border-slate-100 transition-colors duration-100 hover:bg-slate-50',
-        selected && 'bg-slate-50'
+        selected && 'bg-slate-50',
+        isArchiveView && 'opacity-60'
       )}
     >
       <td className="w-8 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -44,7 +56,14 @@ export function TableRow({
           className="h-4 w-4 rounded border-slate-300"
         />
       </td>
-      <td className="px-3 py-2.5 text-sm font-semibold text-slate-900">{application.company_name}</td>
+      <td
+        className={cn(
+          'px-3 py-2.5 text-sm font-semibold',
+          isArchiveView ? 'text-slate-600' : 'text-slate-900'
+        )}
+      >
+        {application.company_name}
+      </td>
       <td className="px-3 py-2.5 text-sm text-slate-600">{application.job_title}</td>
       <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
         <select
@@ -69,7 +88,10 @@ export function TableRow({
         {application.work_setup ? WORK_SETUP_LABELS[application.work_setup] : ''}
       </td>
       <td className="px-3 py-2.5 text-sm text-slate-600 tabular-nums">
-        {application.applied_date && formatDate(application.applied_date)}
+        <div className="flex items-center gap-1.5">
+          <StaleIndicator application={application} thresholdDays={staleThresholdDays ?? null} />
+          {application.applied_date && formatDate(application.applied_date)}
+        </div>
       </td>
       <td className="px-3 py-2.5 text-sm text-slate-600">{application.salary_range}</td>
       <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
@@ -77,6 +99,7 @@ export function TableRow({
           application={application}
           onEdit={onEdit}
           onDelete={onDelete}
+          onArchive={onArchive}
           className="w-32 text-left"
         />
       </td>

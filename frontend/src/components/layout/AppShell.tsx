@@ -16,8 +16,12 @@ export function AppShell() {
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
-  const { view, setView } = useApplicationFilters();
+  const { view, setView, filters } = useApplicationFilters();
   const isMobile = useIsMobile();
+  // The archive view is table-only (docs/05 F9) — a Kanban board of
+  // applications that aren't in the pipeline is a contradiction, so the
+  // toggle that would switch to it is hidden rather than disabled.
+  const showViewToggle = filters.archived !== 'archived';
 
   const handleSignOut = async () => {
     setMenuOpen(false);
@@ -80,13 +84,17 @@ export function AppShell() {
                 {accountMenu}
               </div>
             </div>
-            <ViewToggle view={view} onChange={setView} />
+            {showViewToggle && <ViewToggle view={view} onChange={setView} />}
           </div>
         ) : (
           <div className="flex h-14 items-center justify-between px-6">
             <h1 className="text-xl font-semibold text-slate-900">Applications</h1>
 
-            <ViewToggle view={view} onChange={setView} />
+            {showViewToggle ? (
+              <ViewToggle view={view} onChange={setView} />
+            ) : (
+              <span className="text-sm font-medium text-slate-600">Archive</span>
+            )}
 
             <div className="flex items-center gap-3">
               <Button variant="primary" onClick={openCreate}>

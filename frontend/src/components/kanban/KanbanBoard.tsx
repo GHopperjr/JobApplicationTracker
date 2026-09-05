@@ -24,6 +24,8 @@ type KanbanBoardProps = {
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onArchive?: (application: Application) => void;
+  staleThresholdDays?: number | null;
   /** When non-empty, columns not in this list are hidden entirely rather
    * than rendered empty (docs/05 F7) — an empty status filter means "show
    * every column", not "show none". */
@@ -37,6 +39,8 @@ export function KanbanBoard({
   onEdit,
   onDelete,
   onStatusChange,
+  onArchive,
+  staleThresholdDays,
   statusFilter = [],
 }: KanbanBoardProps) {
   const isMobile = useIsMobile();
@@ -82,6 +86,8 @@ export function KanbanBoard({
         onEdit={onEdit}
         onDelete={onDelete}
         onStatusChange={onStatusChange}
+        onArchive={onArchive}
+        staleThresholdDays={staleThresholdDays}
         statusFilter={statusFilter}
       />
     );
@@ -104,6 +110,8 @@ export function KanbanBoard({
             onCardClick={onCardClick}
             onEdit={onEdit}
             onDelete={onDelete}
+            onArchive={onArchive}
+            staleThresholdDays={staleThresholdDays}
           />
         ))}
       </div>
