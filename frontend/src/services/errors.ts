@@ -27,6 +27,23 @@ export function toAppError(error: { code?: string; message: string }): AppError 
   return new AppError(MESSAGES[code] ?? 'Something went wrong. Please try again.', code, error);
 }
 
+/** Thrown by bulkCreate when some chunks committed before a later one failed. */
+export class PartialImportError extends AppError {
+  readonly importedCount: number;
+  readonly totalCount: number;
+
+  constructor(cause: AppError, importedCount: number, totalCount: number) {
+    super(
+      `Imported ${importedCount} of ${totalCount} applications before an error occurred.`,
+      'PARTIAL_IMPORT',
+      cause
+    );
+    this.name = 'PartialImportError';
+    this.importedCount = importedCount;
+    this.totalCount = totalCount;
+  }
+}
+
 // Supabase AuthError does not carry Postgres error codes, so toAppError cannot
 // classify it — auth failures need their own mapping.
 export function toAuthError(error: { message: string; status?: number }): AppError {

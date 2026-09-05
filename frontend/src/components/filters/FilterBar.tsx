@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { PlatformSource } from '../../constants/platforms';
 import type { ApplicationStatus } from '../../constants/status';
+import { STALE_THRESHOLD_DAYS_DEFAULT } from '../../constants/staleness';
 import { useIsMobile } from '../../hooks/useMediaQuery';
 import { cn } from '../../lib/cn';
 import type { ApplicationFilters } from '../../services/applicationsService';
@@ -21,6 +23,10 @@ type FilterBarProps = {
   onToggleStaleOnly: () => void;
   staleThresholdDays: number | null;
   onChangeStaleThreshold: (days: number | null) => void;
+  /** Exports exactly what's currently filtered/sorted into view (docs/10 Part 1). */
+  onExportCurrent: () => void;
+  onExportAll: () => void;
+  onOpenImport: () => void;
 };
 
 const ARCHIVED_OPTIONS: { value: NonNullable<ApplicationFilters['archived']>; label: string }[] = [
@@ -39,6 +45,19 @@ const THRESHOLD_OPTIONS: { value: number | null; label: string }[] = [
 const hasActiveFilters = (filters: ApplicationFilters) =>
   Boolean(filters.status?.length || filters.platform?.length || filters.search);
 
+function ActionMenuItem({ label, onSelect }: { label: string; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onSelect}
+      className="block min-h-11 w-full px-3.5 py-2 text-left text-sm font-medium text-slate-800 transition-colors duration-100 hover:bg-slate-100 sm:h-auto"
+    >
+      {label}
+    </button>
+  );
+}
+
 function RadioMenuItem({
   label,
   checked,
@@ -55,63 +74,76 @@ function RadioMenuItem({
       aria-checked={checked}
       onClick={onSelect}
       className={cn(
-        'block min-h-11 w-full px-3 py-1.5 text-left text-sm transition-colors duration-100 hover:bg-slate-50',
+        'flex min-h-11 w-full items-center gap-2 px-3.5 py-2 text-left text-sm transition-colors duration-100 hover:bg-slate-100',
         checked ? 'font-semibold text-slate-900' : 'text-slate-700'
       )}
     >
+      {/* Reserved even when unchecked, so the label doesn't shift left/right
+          as selection changes between items. */}
+      <span className="w-3.5 shrink-0 text-slate-900" aria-hidden="true">
+        {checked && '✓'}
+      </span>
       {label}
     </button>
   );
 }
 
-// The Archived scope and the stale threshold are both *modes*, not filters —
-// deliberately not chips, so neither implies it's one click away from the
-// normal view the way Status/Platform chips do (docs/05 F7).
-function OverflowSections({
-  archived,
-  onChangeArchived,
-  staleThresholdDays,
-  onChangeStaleThreshold,
-  onDone,
+/**
+ * A labeled, always-visible chip that opens a small menu — the trigger
+ * itself states the current value ("Show: Archived"), so the state is
+ * readable without opening anything. Replaces a bare, unlabeled "⋯" that
+ * hid the Archived scope and the follow-up threshold behind an icon nobody
+ * had a reason to click (docs/05 F7's "Archived scope and stale threshold
+ * are modes, not filters" still holds — they're just modes worth seeing).
+ */
+function ChipDropdown({
+  label,
+  highlighted,
+  align = 'start',
+  isOpen,
+  onOpenChange,
+  menuClassName,
+  children,
 }: {
-  archived: NonNullable<ApplicationFilters['archived']>;
-  onChangeArchived: (value: NonNullable<ApplicationFilters['archived']>) => void;
-  staleThresholdDays: number | null;
-  onChangeStaleThreshold: (days: number | null) => void;
-  onDone: () => void;
+  label: string;
+  highlighted?: boolean;
+  align?: 'start' | 'end';
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  menuClassName?: string;
+  children: ReactNode;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
-    <>
-      <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        Show
-      </p>
-      {ARCHIVED_OPTIONS.map((option) => (
-        <RadioMenuItem
-          key={option.value}
-          label={option.label}
-          checked={archived === option.value}
-          onSelect={() => {
-            onChangeArchived(option.value);
-            onDone();
-          }}
-        />
-      ))}
-      <div className="my-1 border-t border-slate-100" />
-      <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        Follow-up reminder
-      </p>
-      {THRESHOLD_OPTIONS.map((option) => (
-        <RadioMenuItem
-          key={String(option.value)}
-          label={option.label}
-          checked={staleThresholdDays === option.value}
-          onSelect={() => {
-            onChangeStaleThreshold(option.value);
-            onDone();
-          }}
-        />
-      ))}
-    </>
+    <div>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        onClick={() => onOpenChange(!isOpen)}
+        className={cn(
+          'flex h-11 shrink-0 items-center gap-1 rounded-full border px-3 text-xs font-medium transition-colors duration-100 sm:h-auto sm:py-1',
+          highlighted
+            ? 'border-slate-900 bg-slate-900 text-white'
+            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+        )}
+      >
+        {label}
+        <span aria-hidden="true" className="text-[9px]">
+          ▾
+        </span>
+      </button>
+      <DropdownMenu
+        isOpen={isOpen}
+        onClose={() => onOpenChange(false)}
+        triggerRef={triggerRef}
+        align={align}
+        className={cn('w-48', menuClassName)}
+      >
+        {children}
+      </DropdownMenu>
+    </div>
   );
 }
 
@@ -123,11 +155,14 @@ export function FilterBar({
   onToggleStaleOnly,
   staleThresholdDays,
   onChangeStaleThreshold,
+  onExportCurrent,
+  onExportAll,
+  onOpenImport,
 }: FilterBarProps) {
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
+  // At most one of the three chip menus open at a time.
+  const [openMenu, setOpenMenu] = useState<'show' | 'reminder' | 'data' | null>(null);
   const activeFilterCount = (filters.status?.length ?? 0) + (filters.platform?.length ?? 0);
   const archived = filters.archived ?? 'active';
   const externalSearch = filters.search ?? '';
@@ -301,11 +336,51 @@ export function FilterBar({
                 ))}
               </div>
             </div>
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Data
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onExportCurrent();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onExportAll();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Export all as CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onOpenImport();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Import CSV
+                </button>
+              </div>
+            </div>
           </div>
         </Modal>
       </div>
     );
   }
+
+  const archivedLabel = ARCHIVED_OPTIONS.find((o) => o.value === archived)?.label ?? 'Active';
+  const thresholdLabel = THRESHOLD_OPTIONS.find((o) => o.value === staleThresholdDays)?.label ?? 'Off';
 
   return (
     <div className="flex flex-wrap items-center gap-3 px-6 py-3">
@@ -318,34 +393,75 @@ export function FilterBar({
         selected={filters.platform ?? []}
         onChange={(platform: PlatformSource[]) => onChange({ platform })}
       />
-      {staleChip}
-      <div>
-        <button
-          ref={overflowTriggerRef}
-          type="button"
-          aria-label="More filter options"
-          aria-expanded={overflowOpen}
-          aria-haspopup="menu"
-          onClick={() => setOverflowOpen((open) => !open)}
-          className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition-colors duration-100 hover:bg-slate-100 hover:text-slate-700"
-        >
-          ⋯
-        </button>
-        <DropdownMenu
-          isOpen={overflowOpen}
-          onClose={() => setOverflowOpen(false)}
-          triggerRef={overflowTriggerRef}
-          className="w-56"
-        >
-          <OverflowSections
-            archived={archived}
-            onChangeArchived={(value) => onChange({ archived: value })}
-            staleThresholdDays={staleThresholdDays}
-            onChangeStaleThreshold={onChangeStaleThreshold}
-            onDone={() => setOverflowOpen(false)}
+      <ChipDropdown
+        label={`Show: ${archivedLabel}`}
+        highlighted={archived !== 'active'}
+        isOpen={openMenu === 'show'}
+        onOpenChange={(open) => setOpenMenu(open ? 'show' : null)}
+      >
+        {ARCHIVED_OPTIONS.map((option) => (
+          <RadioMenuItem
+            key={option.value}
+            label={option.label}
+            checked={archived === option.value}
+            onSelect={() => {
+              onChange({ archived: option.value });
+              setOpenMenu(null);
+            }}
           />
-        </DropdownMenu>
-      </div>
+        ))}
+      </ChipDropdown>
+      {staleChip}
+      <ChipDropdown
+        label={`Reminder: ${thresholdLabel}`}
+        highlighted={staleThresholdDays !== STALE_THRESHOLD_DAYS_DEFAULT}
+        isOpen={openMenu === 'reminder'}
+        onOpenChange={(open) => setOpenMenu(open ? 'reminder' : null)}
+      >
+        {THRESHOLD_OPTIONS.map((option) => (
+          <RadioMenuItem
+            key={String(option.value)}
+            label={option.label}
+            checked={staleThresholdDays === option.value}
+            onSelect={() => {
+              onChangeStaleThreshold(option.value);
+              setOpenMenu(null);
+            }}
+          />
+        ))}
+      </ChipDropdown>
+      {/* The one genuinely rare control (docs/10) — labeled rather than a
+          bare icon, and pushed to the far end since nothing else here needs
+          finding it quickly. */}
+      <ChipDropdown
+        label="More"
+        align="end"
+        isOpen={openMenu === 'data'}
+        onOpenChange={(open) => setOpenMenu(open ? 'data' : null)}
+        menuClassName="w-56"
+      >
+        <ActionMenuItem
+          label="Export CSV"
+          onSelect={() => {
+            onExportCurrent();
+            setOpenMenu(null);
+          }}
+        />
+        <ActionMenuItem
+          label="Export all as CSV"
+          onSelect={() => {
+            onExportAll();
+            setOpenMenu(null);
+          }}
+        />
+        <ActionMenuItem
+          label="Import CSV"
+          onSelect={() => {
+            onOpenImport();
+            setOpenMenu(null);
+          }}
+        />
+      </ChipDropdown>
       {hasActiveFilters(filters) && (
         <button type="button" onClick={clearAll} className="text-xs text-slate-500 hover:text-slate-700">
           Clear all

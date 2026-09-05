@@ -5,10 +5,21 @@
 "Minimalist" is easy to say and easy to get wrong — it does not mean sparse, grey, and
 undesigned. For this project it means a specific set of commitments:
 
-1. **Color carries meaning, never decoration.** The only saturated color in the entire interface
-   is status color. Nothing else — no colored headers, no accent buttons competing for attention,
-   no gradient anything. When a user's eye is drawn to color, it is because that color is telling
-   them the state of an application.
+1. **Color carries meaning, never decoration.** Saturated color in the interface is reserved to
+   three narrow, semantic uses — status, platform, and (in exactly one place) user identity. No
+   gradients, no accent buttons competing for attention, no color introduced purely for visual
+   variety. When a user's eye is drawn to color, it is because that color is telling them
+   something — the state of an application, which platform it came from, or whose account this
+   is.
+   - **Status** is reinforced more strongly than a badge alone: the Kanban column header carries a
+     ringed dot and a matching 2px bottom border in the same hue, so columns are identifiable at a
+     glance without reading the label first. Pending stays neutral even here (see the status table).
+   - **Platform** gets its own small, fixed palette (below), used only for the dot in a Kanban
+     card's meta row — a second, independent signal from status color, chosen so the two are never
+     confusable at a glance.
+   - **User identity** (the account-menu avatar) uses a single reserved hue (indigo) that appears
+     nowhere else in the interface, specifically so it can never be mistaken for status or platform
+     meaning.
 2. **Hierarchy comes from type and space, not from boxes.** Prefer whitespace and weight
    contrast over borders, shadows, and cards-within-cards. Where a boundary is genuinely needed
    (a Kanban card, a drawer), it is one hairline rule or one very soft shadow — never both.
@@ -53,6 +64,25 @@ light background for badges and a solid dot for compact contexts.
 **Accessibility:** every badge pairing above clears WCAG AA (4.5:1) for normal text. Status must
 never be communicated by color alone — every badge carries its text label, and the Kanban column
 header states the status name.
+
+### Platform colors
+
+A second, independent palette — deliberately disjoint from the status hues above, so a platform
+dot is never mistaken for a status signal. Text label always accompanies the dot; color is a scan
+aid, not the only signal.
+
+| Platform | Dot |
+|---|---|
+| JobStreet | `bg-purple-500` |
+| LinkedIn | `bg-sky-500` |
+| Indeed | `bg-teal-500` |
+| Company Website | `bg-slate-500` |
+| Referral | `bg-amber-500` |
+| Other | `bg-slate-400` |
+
+Used only on the Kanban card's meta-row dot (`constants/platforms.ts`'s `PLATFORM_STYLES`). The
+table view keeps platform as plain text — a dot repeated in every row of a dense table adds noise
+without adding scannability the way it does on a spaced-out board.
 
 ### Semantic (non-status) color
 
@@ -132,17 +162,24 @@ interface wearing grey.
 ┌─────────────────────────────────────┐
 │ Acme Corporation           ● ⋮      │   ← company (14/600), stale dot, overflow menu
 │ Junior Backend Developer            │   ← job title (14/400, slate-600)
-│                                     │
-│ ● JobStreet    ₱25–32k    Sep 1     │   ← meta row (12/400, slate-500)
+│ ─────────────────────────────────── │   ← hairline divider, border-slate-100
+│ ● JobStreet          ₱25–32k · Sep 1│   ← platform (left, 12/500 slate-700) · salary/date (right, 12/400 slate-400)
 └─────────────────────────────────────┘
 ```
 
+The meta row is a divider (`border-t border-slate-100`, `pt-2.5`) plus a `justify-between` split:
+platform (dot + label, the more prominent side) on the left, salary and date (joined by `·`) on the
+right. Splitting the two groups — rather than one run-on line — is what keeps the row scannable as
+"how" on one side and "when/how much" on the other, instead of four unrelated facts read
+left-to-right in one breath.
+
 The amber dot beside `⋮` appears only when the application is stale (see below); the dot in the
-meta row is the neutral platform marker and is always present.
+meta row is the platform marker (see Platform colors above) and is always present.
 
 - Surface `bg-white`, `border border-slate-200`, `rounded-lg`, `shadow-sm`, `p-3`.
 - Whole card is the drag handle on desktop; the `⋮` menu opens status change + edit + delete.
-- Hover: `border-slate-300` only. No lift, no scale — motion on hover in a dense board is noise.
+- Hover: `border-slate-300` and `shadow-md`. No lift, no scale — motion on hover in a dense board
+  is noise, but a deeper shadow on the surface itself is not motion.
 - Dragging: `shadow-lg`, `opacity-90`, slight `rotate-1`. The original position shows a
   `border-2 border-dashed border-slate-200` placeholder so the drop target is unambiguous.
 - Click (not drag) opens the Detail Drawer.
@@ -152,8 +189,8 @@ meta row is the neutral platform marker and is always present.
 ### `KanbanColumn`
 
 ```
-Pending Application  ·  7            ← header: label (14/600) + count (12/400, slate-500)
-─────────────────────────            ← hairline, border-slate-200
+● Pending Application  7             ← ringed status dot + label (14/600) + count (12/500, slate-500)
+━━━━━━━━━━━━━━━━━━━━━━━━━            ← 2px status-hue border (STATUS_STYLES.headerBorder)
 [ card ]
 [ card ]
 [ card ]
@@ -161,6 +198,10 @@ Pending Application  ·  7            ← header: label (14/600) + count (12/400
 
 - Column width: `w-80` (320px) fixed on desktop. Fixed rather than fluid so the board's rhythm
   stays stable as columns fill and empty.
+- Header dot: the status's `dot` color with a soft `ring-4` in that status's own 100-shade
+  (`STATUS_STYLES.ring`), and the header's bottom border switches from a flat hairline to a 2px
+  rule in the status hue (`STATUS_STYLES.headerBorder`). Pending stays neutral (`ring-slate-100` /
+  `border-slate-300`) for the same reason its dot and badge stay neutral — see Status colors above.
 - Column background: transparent on the `bg-slate-50` canvas — cards float directly on the page.
   A separate column background would add a second surface level for no informational gain.
 - Drag-over state: `bg-slate-100` on the column body. Nothing else — no border flash, no scale.
