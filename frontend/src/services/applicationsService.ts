@@ -190,3 +190,43 @@ export async function bulkDeleteApplications(ids: string[]): Promise<void> {
   const { error } = await supabase.from('applications').delete().in('id', ids);
   if (error) throw toAppError(error);
 }
+
+/**
+ * Archive is orthogonal to status (docs/01-database-schema.md) — a single
+ * request either way, so one function serves the single-row menu action and
+ * the bulk-selection action alike (mirroring bulkUpdateStatus's shape).
+ */
+export async function bulkSetArchived(ids: string[], isArchived: boolean): Promise<Application[]> {
+  const { data, error } = await supabase
+    .from('applications')
+    .update({ is_archived: isArchived })
+    .in('id', ids)
+    .select();
+
+  if (error) throw toAppError(error);
+  return data ?? [];
+}
+
+/**
+ * Case-insensitive match on company + job title, including archived rows —
+ * "you already applied and archived it" is exactly the case worth surfacing
+ * (docs/05-features-and-workflows.md F2). `excludeId` omits the record being
+ * edited, or every save would flag itself as its own duplicate.
+ */
+export async function findPotentialDuplicates(
+  companyName: string,
+  jobTitle: string,
+  excludeId?: string
+): Promise<Application[]> {
+  let query = supabase
+    .from('applications')
+    .select('*')
+    .ilike('company_name', companyName.trim())
+    .ilike('job_title', jobTitle.trim());
+
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data, error } = await query;
+  if (error) throw toAppError(error);
+  return data ?? [];
+}

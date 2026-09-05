@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApplicationDetailDrawer } from '../components/application/ApplicationDetailDrawer';
 import { ApplicationFormModal } from '../components/application/ApplicationFormModal';
@@ -8,12 +8,14 @@ import { ApplicationsTable } from '../components/table/ApplicationsTable';
 import { TableToolbar } from '../components/table/TableToolbar';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { ROUTES } from '../constants/routes';
-import type { ApplicationStatus } from '../constants/status';
+import { STATUS_ORDER, type ApplicationStatus } from '../constants/status';
+import { isStale } from '../constants/staleness';
 import { useApplicationFilters } from '../hooks/useApplicationFilters';
 import { useApplicationForm } from '../hooks/useApplicationForm';
 import { useApplicationMutations } from '../hooks/useApplicationMutations';
 import { useApplications } from '../hooks/useApplications';
 import { useRealtimeApplications } from '../hooks/useRealtimeApplications';
+import { useStaleThreshold } from '../hooks/useStaleThreshold';
 import { useToast } from '../hooks/useToast';
 import { DEFAULT_SORT, type Application } from '../services/applicationsService';
 
@@ -21,7 +23,15 @@ export function ApplicationsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { filters, sort, view, setFilters, setSort } = useApplicationFilters();
+  const { filters, sort, view, stale, setFilters, setSort, setStale } = useApplicationFilters();
+  const { thresholdDays, setThresholdDays } = useStaleThreshold();
+
+  // The archive view is table-only (docs/05 F9) — a Kanban board of
+  // applications that aren't in the pipeline is a contradiction. AppShell
+  // already hides the toggle for the same reason; this is the page's own
+  // half of that rule.
+  const isArchiveView = filters.archived === 'archived';
+  const effectiveView = isArchiveView ? 'table' : view;
 
   // Kanban always uses DEFAULT_SORT and never varies it — only the Table
   // view exposes sort controls (docs/03-frontend-architecture.md). With the
@@ -29,12 +39,32 @@ export function ApplicationsPage() {
   // toggling between them triggers no refetch.
   const { applications, byStatus, isLoading } = useApplications(
     filters,
-    view === 'table' ? sort : DEFAULT_SORT
+    effectiveView === 'table' ? sort : DEFAULT_SORT
   );
   const { formState, openEdit, close } = useApplicationForm();
   const { show } = useToast();
 
   useRealtimeApplications(); // mounted exactly once, here
+
+  // Staleness has no server-side predicate — it's derived from
+  // status_changed_at against a client-local threshold, so it filters the
+  // already-fetched result set (docs/05 F7). Threshold Off (null) disables
+  // the concept entirely regardless of the URL's ?stale= value.
+  const staleCount = useMemo(
+    () => (thresholdDays === null ? 0 : applications.filter((a) => isStale(a, thresholdDays)).length),
+    [applications, thresholdDays]
+  );
+  const showStaleOnly = stale && thresholdDays !== null;
+  const displayedApplications = useMemo(
+    () => (showStaleOnly ? applications.filter((a) => isStale(a, thresholdDays!)) : applications),
+    [applications, showStaleOnly, thresholdDays]
+  );
+  const displayedByStatus = useMemo(() => {
+    if (!showStaleOnly) return byStatus;
+    return Object.fromEntries(
+      STATUS_ORDER.map((s) => [s, byStatus[s].filter((a) => isStale(a, thresholdDays!))])
+    ) as Record<ApplicationStatus, Application[]>;
+  }, [byStatus, showStaleOnly, thresholdDays]);
 
   // The page owns mutations and the delete-confirmation dialog — Card,
   // TableRow, and the Detail Drawer all receive onEdit/onDelete/
@@ -45,6 +75,12 @@ export function ApplicationsPage() {
     onStatusError: () => show("Couldn't update status. Please try again.", 'error'),
     onBulkStatusChanged: (count) => show(`Status updated for ${count} applications.`),
     onBulkDeleted: (count) => show(`${count} applications deleted.`),
+    onArchived: (ids, isArchived) => {
+      show(isArchived ? 'Archived.' : 'Restored.', 'success', {
+        label: 'Undo',
+        onClick: () => mutations.setArchived.mutate({ ids, isArchived: !isArchived }),
+      });
+    },
   });
   const [pendingDelete, setPendingDelete] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -71,6 +107,12 @@ export function ApplicationsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mutations.changeStatus.mutate]
   );
+  const onArchive = useCallback(
+    (application: Application) =>
+      mutations.setArchived.mutate({ ids: [application.id], isArchived: !application.is_archived }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mutations.setArchived.mutate]
+  );
 
   const handleConfirmDelete = () => {
     if (!pendingDelete) return;
@@ -85,12 +127,21 @@ export function ApplicationsPage() {
     );
   }, []);
   const toggleSelectAll = useCallback(() => {
-    setSelectedIds((prev) => (prev.length === applications.length ? [] : applications.map((a) => a.id)));
-  }, [applications]);
+    setSelectedIds((prev) =>
+      prev.length === displayedApplications.length ? [] : displayedApplications.map((a) => a.id)
+    );
+  }, [displayedApplications]);
   const clearSelection = useCallback(() => setSelectedIds([]), []);
 
   const handleBulkStatusChange = (status: ApplicationStatus) => {
     mutations.bulkStatus.mutate({ ids: selectedIds, status });
+    setSelectedIds([]);
+  };
+  const handleBulkArchive = () => {
+    // Direction follows the view, not each row's own state: every selected
+    // row in the archive view is already archived, and every selected row
+    // in the active view is not — there is no mixed case.
+    mutations.setArchived.mutate({ ids: selectedIds, isArchived: !isArchiveView });
     setSelectedIds([]);
   };
   const handleConfirmBulkDelete = () => {
@@ -103,30 +154,42 @@ export function ApplicationsPage() {
 
   return (
     <div className="pb-8">
-      <FilterBar filters={filters} onChange={setFilters} />
+      <FilterBar
+        filters={filters}
+        onChange={setFilters}
+        staleCount={staleCount}
+        showStaleOnly={showStaleOnly}
+        onToggleStaleOnly={() => setStale(!stale)}
+        staleThresholdDays={thresholdDays}
+        onChangeStaleThreshold={setThresholdDays}
+      />
 
-      {view === 'kanban' ? (
+      {effectiveView === 'kanban' ? (
         <KanbanBoard
-          byStatus={byStatus}
+          byStatus={displayedByStatus}
           isLoading={isLoading}
           onCardClick={openDetail}
           onEdit={openEdit}
           onDelete={confirmDelete}
           onStatusChange={onStatusChange}
+          onArchive={onArchive}
+          staleThresholdDays={thresholdDays}
           statusFilter={filters.status}
         />
       ) : (
         <>
           <TableToolbar
-            count={applications.length}
+            count={displayedApplications.length}
             selectedCount={selectedIds.length}
             onBulkStatusChange={handleBulkStatusChange}
+            onBulkArchive={handleBulkArchive}
             onBulkDelete={() => setBulkDeleteOpen(true)}
             onClearSelection={clearSelection}
+            isArchiveView={isArchiveView}
           />
           <div className="px-6 pt-3">
             <ApplicationsTable
-              applications={applications}
+              applications={displayedApplications}
               isLoading={isLoading}
               sort={sort}
               onSortChange={setSort}
@@ -134,6 +197,9 @@ export function ApplicationsPage() {
               onEdit={openEdit}
               onDelete={confirmDelete}
               onStatusChange={onStatusChange}
+              onArchive={onArchive}
+              staleThresholdDays={thresholdDays}
+              isArchiveView={isArchiveView}
               selectedIds={selectedIds}
               onToggleSelect={toggleSelect}
               onToggleSelectAll={toggleSelectAll}
@@ -161,6 +227,7 @@ export function ApplicationsPage() {
         onClose={closeDetail}
         onEdit={openEdit}
         onDelete={confirmDelete}
+        onArchive={onArchive}
       />
 
       <ConfirmDialog

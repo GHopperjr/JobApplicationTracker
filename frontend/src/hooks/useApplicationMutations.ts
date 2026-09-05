@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApplicationStatus } from '../constants/status';
 import {
   bulkDeleteApplications,
+  bulkSetArchived,
   bulkUpdateStatus,
   createApplication,
   deleteApplication,
@@ -19,6 +20,7 @@ type MutationCallbacks = {
   onStatusError?: () => void;
   onBulkStatusChanged?: (count: number) => void;
   onBulkDeleted?: (count: number) => void;
+  onArchived?: (ids: string[], isArchived: boolean) => void;
 };
 
 export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
@@ -118,5 +120,40 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     },
   });
 
-  return { create, update, remove, changeStatus, bulkStatus, bulkRemove };
+  // One unified mutation for both the single-row menu action and bulk
+  // selection — archive is a one-request toggle either way. Optimistically
+  // removes the affected rows from every cached list: correct immediately
+  // for the common case (archiving while viewing the active list, or
+  // restoring while viewing the archive), and self-corrects for the other
+  // direction (Undo/restore while viewing the active list) once onSettled's
+  // invalidate lands — a brief round-trip on a recovery action, not the hot
+  // path this needs to be instant for (docs/05 F9).
+  const setArchived = useMutation({
+    mutationFn: ({ ids, isArchived }: { ids: string[]; isArchived: boolean }) =>
+      bulkSetArchived(ids, isArchived),
+
+    onMutate: async ({ ids }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
+      const previous = queryClient.getQueriesData<Application[]>({
+        queryKey: queryKeys.applications.lists,
+      });
+
+      queryClient.setQueriesData<Application[]>(
+        { queryKey: queryKeys.applications.lists },
+        (old) => (Array.isArray(old) ? old.filter((a) => !ids.includes(a.id)) : old)
+      );
+
+      return { previous };
+    },
+
+    onSuccess: (_data, { ids, isArchived }) => callbacks.onArchived?.(ids, isArchived),
+
+    onError: (_err, _vars, context) => {
+      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+    },
+
+    onSettled: invalidate,
+  });
+
+  return { create, update, remove, changeStatus, bulkStatus, bulkRemove, setArchived };
 }

@@ -32,6 +32,9 @@ type ApplicationsTableProps = {
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onArchive?: (application: Application) => void;
+  staleThresholdDays?: number | null;
+  isArchiveView?: boolean;
   selectedIds: string[];
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
@@ -46,6 +49,9 @@ export function ApplicationsTable({
   onEdit,
   onDelete,
   onStatusChange,
+  onArchive,
+  staleThresholdDays,
+  isArchiveView = false,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -90,6 +96,9 @@ export function ApplicationsTable({
             onEdit={onEdit}
             onDelete={onDelete}
             onStatusChange={onStatusChange}
+            onArchive={onArchive}
+            staleThresholdDays={staleThresholdDays}
+            isArchiveView={isArchiveView}
             selected={selectedIds.includes(application.id)}
             onToggleSelect={onToggleSelect}
           />
@@ -141,6 +150,9 @@ export function ApplicationsTable({
               onEdit={onEdit}
               onDelete={onDelete}
               onStatusChange={onStatusChange}
+              onArchive={onArchive}
+              staleThresholdDays={staleThresholdDays}
+              isArchiveView={isArchiveView}
               selected={selectedIds.includes(application.id)}
               onToggleSelect={onToggleSelect}
             />

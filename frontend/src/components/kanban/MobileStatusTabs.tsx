@@ -12,6 +12,8 @@ type MobileStatusTabsProps = {
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
   onStatusChange: (id: string, status: ApplicationStatus) => void;
+  onArchive?: (application: Application) => void;
+  staleThresholdDays?: number | null;
   statusFilter?: ApplicationStatus[];
 };
 
@@ -24,6 +26,8 @@ export function MobileStatusTabs({
   onEdit,
   onDelete,
   onStatusChange,
+  onArchive,
+  staleThresholdDays,
   statusFilter = [],
 }: MobileStatusTabsProps) {
   const visibleStatuses = statusFilter.length
@@ -96,6 +100,8 @@ export function MobileStatusTabs({
               onEdit={onEdit}
               onDelete={onDelete}
               onStatusChange={onStatusChange}
+              onArchive={onArchive}
+              staleThresholdDays={staleThresholdDays}
               showMoveTo
             />
           ))

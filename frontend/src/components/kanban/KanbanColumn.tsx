@@ -12,6 +12,8 @@ type KanbanColumnProps = {
   onCardClick: (id: string) => void;
   onEdit: (application: Application) => void;
   onDelete: (application: Application) => void;
+  onArchive?: (application: Application) => void;
+  staleThresholdDays?: number | null;
 };
 
 export function KanbanColumn({
@@ -21,6 +23,8 @@ export function KanbanColumn({
   onCardClick,
   onEdit,
   onDelete,
+  onArchive,
+  staleThresholdDays,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: isLoading });
 
@@ -52,6 +56,8 @@ export function KanbanColumn({
               onView={onCardClick}
               onEdit={onEdit}
               onDelete={onDelete}
+              onArchive={onArchive}
+              staleThresholdDays={staleThresholdDays}
             />
           ))
         )}

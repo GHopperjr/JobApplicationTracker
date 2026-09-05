@@ -13,6 +13,10 @@ type ApplicationActionsProps = {
    * disabled (docs/04-design-system.md). */
   onStatusChange?: (id: string, status: ApplicationStatus) => void;
   showMoveTo?: boolean;
+  /** Omitted from the overlay copy and anywhere archive isn't offered.
+   * Reads "Restore" instead of "Archive" when the record is already
+   * archived — the same item serves both directions (docs/05 F9). */
+  onArchive?: (application: Application) => void;
   className?: string;
 };
 
@@ -27,6 +31,7 @@ export function ApplicationActions({
   onDelete,
   onStatusChange,
   showMoveTo = false,
+  onArchive,
   className,
 }: ApplicationActionsProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -98,6 +103,20 @@ export function ApplicationActions({
               </div>
             )}
           </>
+        )}
+
+        {onArchive && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              closeAll();
+              onArchive(application);
+            }}
+            className="block min-h-11 w-full px-3 py-1.5 text-left text-sm text-slate-700 transition-colors duration-100 hover:bg-slate-50"
+          >
+            {application.is_archived ? 'Restore' : 'Archive'}
+          </button>
         )}
 
         <button
