@@ -14,6 +14,7 @@ import { STATUS_LABELS, STATUS_ORDER } from '../../constants/status';
 import { WORK_SETUP_LABELS, WORK_SETUP_ORDER } from '../../constants/workSetup';
 import { useApplicationMutations } from '../../hooks/useApplicationMutations';
 import { useToast } from '../../hooks/useToast';
+import { formatShortTimestamp } from '../../lib/format';
 import { applicationSchema } from '../../lib/validation';
 import { findPotentialDuplicates } from '../../services/applicationsService';
 import { AppError } from '../../services/errors';
@@ -27,16 +28,6 @@ type ApplicationFormModalProps = {
   application?: Application; // present in edit mode, absent in create mode
   onClose: () => void;
 };
-
-// `created_at` is a timestamptz, so `new Date(iso)` parses it correctly
-// directly — unlike `applied_date`, this is NOT the date-only UTC-midnight
-// trap `lib/format.ts`'s `parseDateOnly` exists to work around
-// (docs/07-component-specifications.md).
-function formatAddedDate(createdAt: string): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
-    new Date(createdAt)
-  );
-}
 
 export function ApplicationFormModal({ isOpen, application, onClose }: ApplicationFormModalProps) {
   const isEditMode = Boolean(application);
@@ -222,7 +213,7 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
               <p className="font-medium">You already have an application for this role.</p>
               <p className="mt-0.5 text-amber-800">
                 {duplicate.company_name} · {duplicate.job_title} — added{' '}
-                {formatAddedDate(duplicate.created_at)} via {PLATFORM_LABELS[duplicate.platform_source]},
+                {formatShortTimestamp(duplicate.created_at)} via {PLATFORM_LABELS[duplicate.platform_source]},
                 currently {STATUS_LABELS[duplicate.status]}
               </p>
               <div className="mt-2 flex gap-3">
