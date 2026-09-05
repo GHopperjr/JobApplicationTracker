@@ -19,6 +19,7 @@ import { findPotentialDuplicates } from '../../services/applicationsService';
 import { AppError } from '../../services/errors';
 import { toFormValues, type ApplicationFormValues } from '../../types/application';
 import type { Application } from '../../services/applicationsService';
+import { autoPrefixUrl } from '../../lib/url';
 import { SalaryRangeField } from './SalaryRangeField';
 
 type ApplicationFormModalProps = {
@@ -26,14 +27,6 @@ type ApplicationFormModalProps = {
   application?: Application; // present in edit mode, absent in create mode
   onClose: () => void;
 };
-
-// Bare domains ("www.linkedin.com/jobs/1") are common paste-ins. Silently
-// correcting them on blur is friendlier than erroring on a fixable mistake.
-function autoPrefixUrl(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed || /^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}
 
 // `created_at` is a timestamptz, so `new Date(iso)` parses it correctly
 // directly — unlike `applied_date`, this is NOT the date-only UTC-midnight

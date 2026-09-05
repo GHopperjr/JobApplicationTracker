@@ -21,6 +21,10 @@ type FilterBarProps = {
   onToggleStaleOnly: () => void;
   staleThresholdDays: number | null;
   onChangeStaleThreshold: (days: number | null) => void;
+  /** Exports exactly what's currently filtered/sorted into view (docs/10 Part 1). */
+  onExportCurrent: () => void;
+  onExportAll: () => void;
+  onOpenImport: () => void;
 };
 
 const ARCHIVED_OPTIONS: { value: NonNullable<ApplicationFilters['archived']>; label: string }[] = [
@@ -38,6 +42,19 @@ const THRESHOLD_OPTIONS: { value: number | null; label: string }[] = [
 
 const hasActiveFilters = (filters: ApplicationFilters) =>
   Boolean(filters.status?.length || filters.platform?.length || filters.search);
+
+function ActionMenuItem({ label, onSelect }: { label: string; onSelect: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onSelect}
+      className="block min-h-11 w-full px-3 py-1.5 text-left text-sm text-slate-700 transition-colors duration-100 hover:bg-slate-50 sm:h-auto"
+    >
+      {label}
+    </button>
+  );
+}
 
 function RadioMenuItem({
   label,
@@ -72,12 +89,18 @@ function OverflowSections({
   onChangeArchived,
   staleThresholdDays,
   onChangeStaleThreshold,
+  onExportCurrent,
+  onExportAll,
+  onOpenImport,
   onDone,
 }: {
   archived: NonNullable<ApplicationFilters['archived']>;
   onChangeArchived: (value: NonNullable<ApplicationFilters['archived']>) => void;
   staleThresholdDays: number | null;
   onChangeStaleThreshold: (days: number | null) => void;
+  onExportCurrent: () => void;
+  onExportAll: () => void;
+  onOpenImport: () => void;
   onDone: () => void;
 }) {
   return (
@@ -111,6 +134,31 @@ function OverflowSections({
           }}
         />
       ))}
+      <div className="my-1 border-t border-slate-100" />
+      <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Data
+      </p>
+      <ActionMenuItem
+        label="Export CSV"
+        onSelect={() => {
+          onExportCurrent();
+          onDone();
+        }}
+      />
+      <ActionMenuItem
+        label="Export all as CSV"
+        onSelect={() => {
+          onExportAll();
+          onDone();
+        }}
+      />
+      <ActionMenuItem
+        label="Import CSV"
+        onSelect={() => {
+          onOpenImport();
+          onDone();
+        }}
+      />
     </>
   );
 }
@@ -123,6 +171,9 @@ export function FilterBar({
   onToggleStaleOnly,
   staleThresholdDays,
   onChangeStaleThreshold,
+  onExportCurrent,
+  onExportAll,
+  onOpenImport,
 }: FilterBarProps) {
   const isMobile = useIsMobile();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -301,6 +352,43 @@ export function FilterBar({
                 ))}
               </div>
             </div>
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Data
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onExportCurrent();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onExportAll();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Export all as CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFiltersOpen(false);
+                    onOpenImport();
+                  }}
+                  className="min-h-11 rounded-full border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Import CSV
+                </button>
+              </div>
+            </div>
           </div>
         </Modal>
       </div>
@@ -342,6 +430,9 @@ export function FilterBar({
             onChangeArchived={(value) => onChange({ archived: value })}
             staleThresholdDays={staleThresholdDays}
             onChangeStaleThreshold={onChangeStaleThreshold}
+            onExportCurrent={onExportCurrent}
+            onExportAll={onExportAll}
+            onOpenImport={onOpenImport}
             onDone={() => setOverflowOpen(false)}
           />
         </DropdownMenu>

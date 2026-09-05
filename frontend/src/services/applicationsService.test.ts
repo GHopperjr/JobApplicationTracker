@@ -6,12 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 // a terminal `.single()`).
 function makeChain(result: { data: unknown; error: unknown }) {
   const chain = {
-    select: vi.fn(() => chain),
-    insert: vi.fn(() => chain),
-    update: vi.fn(() => chain),
-    in: vi.fn(() => chain),
-    ilike: vi.fn(() => chain),
-    neq: vi.fn(() => chain),
+    select: vi.fn((..._args: unknown[]) => chain),
+    insert: vi.fn((..._args: unknown[]) => chain),
+    update: vi.fn((..._args: unknown[]) => chain),
+    in: vi.fn((..._args: unknown[]) => chain),
+    ilike: vi.fn((..._args: unknown[]) => chain),
+    neq: vi.fn((..._args: unknown[]) => chain),
     single: vi.fn(() => Promise.resolve(result)),
     then: (onFulfilled: (value: typeof result) => unknown, onRejected?: (reason: unknown) => unknown) =>
       Promise.resolve(result).then(onFulfilled, onRejected),
@@ -26,9 +26,10 @@ vi.mock('./supabaseClient', () => ({
 }));
 
 // Imported after the mock so applicationsService picks up the mocked client.
-const { createApplication, bulkSetArchived, findPotentialDuplicates } = await import(
+const { createApplication, bulkCreate, bulkSetArchived, findPotentialDuplicates } = await import(
   './applicationsService'
 );
+type ApplicationInsert = import('./applicationsService').ApplicationInsert;
 
 describe('createApplication', () => {
   it('normalizes blank optional fields to null before sending to Postgres', async () => {
@@ -71,6 +72,47 @@ describe('bulkSetArchived', () => {
     expect(chain.update).toHaveBeenCalledWith({ is_archived: true });
     expect(chain.in).toHaveBeenCalledWith('id', ['1', '2']);
     expect(result).toEqual([{ id: '1' }, { id: '2' }]);
+  });
+});
+
+describe('bulkCreate', () => {
+  const makeRows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      company_name: `Company ${i}`,
+      job_title: 'Engineer',
+    })) as ApplicationInsert[];
+
+  it('inserts in sequential chunks of 100 and reports progress after each chunk', async () => {
+    const chunk1 = makeChain({ data: makeRows(100).map((r, i) => ({ id: `a${i}`, ...r })), error: null });
+    const chunk2 = makeChain({ data: makeRows(50).map((r, i) => ({ id: `b${i}`, ...r })), error: null });
+    from.mockReturnValueOnce(chunk1).mockReturnValueOnce(chunk2);
+
+    const progress: [number, number][] = [];
+    const result = await bulkCreate(makeRows(150), (imported, total) => progress.push([imported, total]));
+
+    expect(chunk1.insert.mock.calls[0][0]).toHaveLength(100);
+    expect(chunk2.insert.mock.calls[0][0]).toHaveLength(50);
+    expect(result).toHaveLength(150);
+    // Sequential, not parallel — the second chunk's insert only happens
+    // after the first has already resolved (docs/10-data-import-export.md).
+    expect(progress).toEqual([
+      [100, 150],
+      [150, 150],
+    ]);
+  });
+
+  it('reports how many rows committed before a later chunk fails', async () => {
+    const chunk1 = makeChain({ data: makeRows(100).map((r, i) => ({ id: `a${i}`, ...r })), error: null });
+    const chunk2 = makeChain({ data: null, error: { code: '23514', message: 'check constraint violated' } });
+    from.mockReturnValueOnce(chunk1).mockReturnValueOnce(chunk2);
+
+    // "Imported 100 of 150" must be a statement bulkCreate can make
+    // truthfully — that's the entire reason chunks run sequentially.
+    await expect(bulkCreate(makeRows(150))).rejects.toMatchObject({
+      name: 'PartialImportError',
+      importedCount: 100,
+      totalCount: 150,
+    });
   });
 });
 

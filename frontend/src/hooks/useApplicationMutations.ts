@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ApplicationStatus } from '../constants/status';
 import {
+  bulkCreate,
   bulkDeleteApplications,
   bulkSetArchived,
   bulkUpdateStatus,
@@ -9,6 +10,7 @@ import {
   updateApplication,
   updateApplicationStatus,
   type Application,
+  type ApplicationInsert,
   type ApplicationUpdate,
 } from '../services/applicationsService';
 import { queryKeys } from './queryKeys';
@@ -21,6 +23,7 @@ type MutationCallbacks = {
   onBulkStatusChanged?: (count: number) => void;
   onBulkDeleted?: (count: number) => void;
   onArchived?: (ids: string[], isArchived: boolean) => void;
+  onImported?: (count: number) => void;
 };
 
 export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
@@ -155,5 +158,27 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     onSettled: invalidate,
   });
 
-  return { create, update, remove, changeStatus, bulkStatus, bulkRemove, setArchived };
+  // No optimistic update: import is additive, not a change to existing rows,
+  // and its own progress bar (docs/10-data-import-export.md Step 4) is the
+  // feedback while it runs. `PartialImportError` still means some chunks
+  // committed, so the cache is invalidated on error too, not just success —
+  // ImportModal reads the thrown error itself for the "imported N of M" UI.
+  const importMany = useMutation({
+    mutationFn: ({
+      rows,
+      onProgress,
+    }: {
+      rows: ApplicationInsert[];
+      onProgress?: (imported: number, total: number) => void;
+    }) => bulkCreate(rows, onProgress),
+
+    onSuccess: (data) => {
+      invalidate();
+      callbacks.onImported?.(data.length);
+    },
+
+    onError: invalidate,
+  });
+
+  return { create, update, remove, changeStatus, bulkStatus, bulkRemove, setArchived, importMany };
 }

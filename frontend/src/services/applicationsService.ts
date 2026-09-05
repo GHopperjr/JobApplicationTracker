@@ -1,4 +1,4 @@
-import { toAppError } from './errors';
+import { PartialImportError, toAppError } from './errors';
 import { supabase } from './supabaseClient';
 import type { Database } from '../types/database.types';
 
@@ -213,6 +213,34 @@ export async function bulkSetArchived(ids: string[], isArchived: boolean): Promi
  * (docs/05-features-and-workflows.md F2). `excludeId` omits the record being
  * edited, or every save would flag itself as its own duplicate.
  */
+/**
+ * Chunked, sequential inserts for CSV import (docs/10-data-import-export.md).
+ * Sequential rather than parallel: on failure, "the first N committed" must
+ * be a statement bulkCreate can make truthfully, which a parallel chunk race
+ * would not allow.
+ */
+export async function bulkCreate(
+  rows: ApplicationInsert[],
+  onProgress?: (imported: number, total: number) => void
+): Promise<Application[]> {
+  const CHUNK = 100;
+  const created: Application[] = [];
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK).map(normalizeOptionalFields);
+    const { data, error } = await supabase
+      .from('applications')
+      .insert(chunk as Database['public']['Tables']['applications']['Insert'][])
+      .select();
+
+    if (error) throw new PartialImportError(toAppError(error), created.length, rows.length);
+    created.push(...(data ?? []));
+    onProgress?.(created.length, rows.length);
+  }
+
+  return created;
+}
+
 export async function findPotentialDuplicates(
   companyName: string,
   jobTitle: string,

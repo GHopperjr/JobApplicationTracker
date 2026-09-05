@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApplicationDetailDrawer } from '../components/application/ApplicationDetailDrawer';
 import { ApplicationFormModal } from '../components/application/ApplicationFormModal';
 import { FilterBar } from '../components/filters/FilterBar';
+import { ImportModal } from '../components/import/ImportModal';
 import { KanbanBoard } from '../components/kanban/KanbanBoard';
 import { ApplicationsTable } from '../components/table/ApplicationsTable';
 import { TableToolbar } from '../components/table/TableToolbar';
@@ -17,7 +18,8 @@ import { useApplications } from '../hooks/useApplications';
 import { useRealtimeApplications } from '../hooks/useRealtimeApplications';
 import { useStaleThreshold } from '../hooks/useStaleThreshold';
 import { useToast } from '../hooks/useToast';
-import { DEFAULT_SORT, type Application } from '../services/applicationsService';
+import { downloadCsv, exportFilename } from '../lib/csv';
+import { DEFAULT_SORT, listApplications, type Application } from '../services/applicationsService';
 
 export function ApplicationsPage() {
   const { id } = useParams();
@@ -85,6 +87,28 @@ export function ApplicationsPage() {
   const [pendingDelete, setPendingDelete] = useState<Application | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  // Export mirrors exactly what's on screen — same filters, sort, and
+  // archived scope — so "current view" includes the client-only stale
+  // filter too (docs/10-data-import-export.md Part 1). "All" ignores every
+  // filter and re-fetches rather than reusing the cache, which is scoped to
+  // the active view.
+  const handleExportCurrent = async () => {
+    try {
+      await downloadCsv(displayedApplications, exportFilename());
+    } catch {
+      show("Couldn't export applications. Please try again.", 'error');
+    }
+  };
+  const handleExportAll = async () => {
+    try {
+      const all = await listApplications({ archived: 'all' });
+      await downloadCsv(all, exportFilename());
+    } catch {
+      show("Couldn't export applications. Please try again.", 'error');
+    }
+  };
 
   const openDetail = useCallback(
     (appId: string) => navigate({ pathname: ROUTES.application(appId), search: location.search }),
@@ -162,6 +186,9 @@ export function ApplicationsPage() {
         onToggleStaleOnly={() => setStale(!stale)}
         staleThresholdDays={thresholdDays}
         onChangeStaleThreshold={setThresholdDays}
+        onExportCurrent={() => void handleExportCurrent()}
+        onExportAll={() => void handleExportAll()}
+        onOpenImport={() => setImportOpen(true)}
       />
 
       {effectiveView === 'kanban' ? (
@@ -213,6 +240,8 @@ export function ApplicationsPage() {
         application={formState.mode === 'edit' ? formState.application : undefined}
         onClose={close}
       />
+
+      <ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
 
       {/* Always rendered (never conditionally mounted): AnimatePresence
           inside Drawer can only play a close animation if it sees `isOpen`
