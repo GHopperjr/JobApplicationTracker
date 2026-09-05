@@ -24,6 +24,8 @@ the code should be built from.
    the whole build into an order that produces a working app at every checkpoint.
 7. **08–10** are read when you reach the phase that needs them: testing/CI setup (08), anything
    about running the app rather than building it (09), and the import/export flows (10).
+8. **11 onwards** are post-roadmap features — designed after the fact, built only once 00–10's
+   roadmap has fully shipped. Each is self-contained and independently deferrable.
 
 ## Document index
 
@@ -40,6 +42,7 @@ the code should be built from.
 | 08 | [`08-testing-and-ci.md`](./08-testing-and-ci.md) | Test strategy per layer, the non-negotiable tests, Playwright E2E, automated accessibility, GitHub Actions pipeline |
 | 09 | [`09-operations.md`](./09-operations.md) | Dev/prod environments, local Supabase loop, migrations workflow, deployment, error tracking, security headers, free-tier limits |
 | 10 | [`10-data-import-export.md`](./10-data-import-export.md) | CSV export, and the four-step CSV import flow with column mapping, validation, and partial-failure handling |
+| 11 | [`11-navigation-and-distance.md`](./11-navigation-and-distance.md) | Sidebar navigation shell, Settings page, saved locations, and the zero-cost distance/driving-ETA calculator |
 
 ## Project at a glance
 
