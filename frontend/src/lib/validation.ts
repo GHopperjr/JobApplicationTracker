@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PLATFORM_VALUES } from '../constants/platforms';
 import { STATUS_VALUES } from '../constants/status';
 import { WORK_SETUP_VALUES } from '../constants/workSetup';
+import { HTTP_URL_PATTERN } from './url';
 
 // Both constants are declared `as const` (readonly tuples) — z.enum() will
 // not accept a mutable string[].
@@ -11,7 +12,7 @@ const httpUrl = z
   // z.url() alone accepts ftp:// and mailto:, which the database check
   // constraint then rejects with an opaque 23514. Enforce the protocol here
   // so the user gets the real message.
-  .refine((v) => /^https?:\/\//i.test(v), {
+  .refine((v) => HTTP_URL_PATTERN.test(v), {
     message: 'Enter a valid URL starting with http:// or https://',
   });
 

@@ -1,7 +1,7 @@
 import { PLATFORM_LABELS, PLATFORM_VALUES, type PlatformSource } from '../constants/platforms';
 import { STATUS_LABELS, STATUS_VALUES, type ApplicationStatus } from '../constants/status';
 import type { Application, ApplicationInsert } from '../services/applicationsService';
-import { autoPrefixUrl } from './url';
+import { HTTP_URL_PATTERN, autoPrefixUrl } from './url';
 
 // ---------------------------------------------------------------------------
 // Export (docs/10-data-import-export.md, Part 1)
@@ -290,7 +290,7 @@ export function coerceImportRow(
 
   const linkRaw = fieldValue('job_link');
   const prefixedLink = linkRaw ? autoPrefixUrl(linkRaw) : '';
-  const isValidLink = /^https?:\/\//i.test(prefixedLink);
+  const isValidLink = HTTP_URL_PATTERN.test(prefixedLink);
   if (linkRaw && !isValidLink) warn(`Invalid job link "${linkRaw}" — left blank`);
 
   const data: ApplicationInsert = {
