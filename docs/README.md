@@ -44,6 +44,7 @@ the code should be built from.
 | 10 | [`10-data-import-export.md`](./10-data-import-export.md) | CSV export, and the four-step CSV import flow with column mapping, validation, and partial-failure handling |
 | 11 | [`11-navigation-and-distance.md`](./11-navigation-and-distance.md) | Sidebar navigation shell, Settings page, saved locations, and the zero-cost distance/driving-ETA calculator |
 | 12 | [`12-interview-metrics.md`](./12-interview-metrics.md) | Metrics page: application pace against a monthly goal, status snapshot, conversion funnel from status history, and effectiveness by platform |
+| 13 | [`13-profile-and-experience-filtering.md`](./13-profile-and-experience-filtering.md) | Graduation date on the profile, career stage derived from it, per-application target audience, and the filter combining the two |
 
 ## Project at a glance
 
