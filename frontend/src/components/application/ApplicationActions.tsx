@@ -50,7 +50,7 @@ export function ApplicationActions({
           e.stopPropagation();
           setMenuOpen((open) => !open);
         }}
-        className="flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition-colors duration-100 hover:bg-slate-100 hover:text-slate-700 sm:h-auto sm:w-auto sm:px-2 sm:py-1"
+        className="flex h-11 w-11 items-center justify-center rounded-md text-slate-500 transition-colors duration-100 hover:bg-slate-100 hover:text-slate-700 sm:h-6 sm:w-6"
       >
         ⋮
       </button>

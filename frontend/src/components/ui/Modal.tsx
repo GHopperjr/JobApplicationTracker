@@ -1,8 +1,9 @@
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useId, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useIsMobile } from '../../hooks/useMediaQuery';
+import { useMotionDuration } from '../../hooks/useMotionDuration';
 import { cn } from '../../lib/cn';
 
 type ModalProps = {
@@ -24,9 +25,8 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useFocusTrap<HTMLDivElement>(isOpen, onClose);
   const titleId = useId();
-  const prefersReducedMotion = useReducedMotion();
   const isMobile = useIsMobile();
-  const duration = prefersReducedMotion ? 0 : isMobile ? 0.2 : 0.15;
+  const duration = useMotionDuration(isMobile ? 0.2 : 0.15);
 
   // On mobile this becomes a bottom sheet (slide up, ~90vh, rounded top
   // corners only, drag handle) rather than a centered dialog — a centered

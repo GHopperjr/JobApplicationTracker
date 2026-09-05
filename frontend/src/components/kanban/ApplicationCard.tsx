@@ -87,7 +87,7 @@ function ApplicationCardImpl({
           tabIndex={isOverlay ? undefined : 0}
           aria-label="Reorder"
           onClick={(e) => e.stopPropagation()}
-          className="mr-1 shrink-0 cursor-grab select-none text-slate-300 opacity-0 focus:opacity-100 group-hover:opacity-100"
+          className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center cursor-grab text-slate-300 opacity-0 focus:opacity-100 group-hover:opacity-100"
         >
           ⠿
         </span>
