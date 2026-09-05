@@ -14,4 +14,7 @@ export const queryKeys = {
     detail: (id: string) => ['applications', 'detail', id] as const,
     history: (id: string) => ['applications', 'history', id] as const,
   },
+  savedLocations: {
+    all: ['saved-locations'] as const,
+  },
 };
