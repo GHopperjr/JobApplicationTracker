@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { ApplicationStatus } from '../constants/status';
 import {
   bulkCreate,
@@ -25,6 +25,36 @@ type MutationCallbacks = {
   onArchived?: (ids: string[], isArchived: boolean) => void;
   onImported?: (count: number) => void;
 };
+
+type OptimisticListContext = {
+  previous: [readonly unknown[], Application[] | undefined][];
+};
+
+// `changeStatus`, `bulkStatus`, and `setArchived` all optimistically rewrite
+// every cached list the same way — cancel in-flight fetches, snapshot every
+// list query, then apply `updater` to each. Centralized so the cancel /
+// snapshot / write sequence (and its rollback below) can't drift between the
+// three call sites (docs/03-frontend-architecture.md's optimistic-update
+// pattern).
+async function optimisticListUpdate(
+  queryClient: QueryClient,
+  updater: (applications: Application[]) => Application[]
+): Promise<OptimisticListContext> {
+  await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
+  const previous = queryClient.getQueriesData<Application[]>({
+    queryKey: queryKeys.applications.lists,
+  });
+
+  queryClient.setQueriesData<Application[]>({ queryKey: queryKeys.applications.lists }, (old) =>
+    Array.isArray(old) ? updater(old) : old
+  );
+
+  return { previous };
+}
+
+function rollbackListUpdate(queryClient: QueryClient, context: OptimisticListContext | undefined) {
+  context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+}
 
 export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
   const queryClient = useQueryClient();
@@ -62,24 +92,14 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>
       updateApplicationStatus(id, status),
 
-    onMutate: async ({ id, status }) => {
-      // NOTE: `lists`, not `all` — see the query-key warning in queryKeys.ts.
-      await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
-      const previous = queryClient.getQueriesData<Application[]>({
-        queryKey: queryKeys.applications.lists,
-      });
-
-      queryClient.setQueriesData<Application[]>(
-        { queryKey: queryKeys.applications.lists },
-        (old) => (Array.isArray(old) ? old.map((a) => (a.id === id ? { ...a, status } : a)) : old)
-      );
-
-      return { previous };
-    },
+    // NOTE: `lists`, not `all` — see the query-key warning in queryKeys.ts.
+    onMutate: ({ id, status }) =>
+      optimisticListUpdate(queryClient, (apps) =>
+        apps.map((a) => (a.id === id ? { ...a, status } : a))
+      ),
 
     onError: (_err, _vars, context) => {
-      // Put every touched cache entry back exactly as it was.
-      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      rollbackListUpdate(queryClient, context);
       callbacks.onStatusError?.();
     },
 
@@ -92,25 +112,14 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     mutationFn: ({ ids, status }: { ids: string[]; status: ApplicationStatus }) =>
       bulkUpdateStatus(ids, status),
 
-    onMutate: async ({ ids, status }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
-      const previous = queryClient.getQueriesData<Application[]>({
-        queryKey: queryKeys.applications.lists,
-      });
-
-      queryClient.setQueriesData<Application[]>(
-        { queryKey: queryKeys.applications.lists },
-        (old) => (Array.isArray(old) ? old.map((a) => (ids.includes(a.id) ? { ...a, status } : a)) : old)
-      );
-
-      return { previous, count: ids.length };
-    },
+    onMutate: ({ ids, status }) =>
+      optimisticListUpdate(queryClient, (apps) =>
+        apps.map((a) => (ids.includes(a.id) ? { ...a, status } : a))
+      ),
 
     onSuccess: (_data, { ids }) => callbacks.onBulkStatusChanged?.(ids.length),
 
-    onError: (_err, _vars, context) => {
-      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
-    },
+    onError: (_err, _vars, context) => rollbackListUpdate(queryClient, context),
 
     onSettled: invalidate,
   });
@@ -135,25 +144,12 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
     mutationFn: ({ ids, isArchived }: { ids: string[]; isArchived: boolean }) =>
       bulkSetArchived(ids, isArchived),
 
-    onMutate: async ({ ids }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.applications.lists });
-      const previous = queryClient.getQueriesData<Application[]>({
-        queryKey: queryKeys.applications.lists,
-      });
-
-      queryClient.setQueriesData<Application[]>(
-        { queryKey: queryKeys.applications.lists },
-        (old) => (Array.isArray(old) ? old.filter((a) => !ids.includes(a.id)) : old)
-      );
-
-      return { previous };
-    },
+    onMutate: ({ ids }) =>
+      optimisticListUpdate(queryClient, (apps) => apps.filter((a) => !ids.includes(a.id))),
 
     onSuccess: (_data, { ids, isArchived }) => callbacks.onArchived?.(ids, isArchived),
 
-    onError: (_err, _vars, context) => {
-      context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
-    },
+    onError: (_err, _vars, context) => rollbackListUpdate(queryClient, context),
 
     onSettled: invalidate,
   });
