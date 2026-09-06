@@ -4,7 +4,11 @@
 // local. This trap does NOT apply to timestamptz columns (created_at,
 // updated_at, status_changed_at, changed_at) — those parse correctly with
 // `new Date(...)` directly.
-function parseDateOnly(iso: string): Date {
+//
+// Exported: `graduation_date` (docs/13-profile-and-experience-filtering.md)
+// is the second date-only column in the app and reuses this rather than
+// introducing a second parsing path.
+export function parseDateOnly(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d);
 }

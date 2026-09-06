@@ -5,10 +5,10 @@ import { renderWithProviders } from '../../test/renderWithProviders';
 import { GoalSettings } from './GoalSettings';
 
 const getUserPreferences = vi.fn();
-const upsertMonthlyGoal = vi.fn();
+const upsertUserPreferences = vi.fn();
 vi.mock('../../services/userPreferencesService', () => ({
   getUserPreferences: () => getUserPreferences(),
-  upsertMonthlyGoal: (...args: unknown[]) => upsertMonthlyGoal(...args),
+  upsertUserPreferences: (...args: unknown[]) => upsertUserPreferences(...args),
 }));
 
 describe('GoalSettings', () => {
@@ -24,7 +24,7 @@ describe('GoalSettings', () => {
 
   it('saves a new goal on submit', async () => {
     getUserPreferences.mockResolvedValue({ user_id: 'u1', monthly_application_goal: null });
-    upsertMonthlyGoal.mockResolvedValue({ user_id: 'u1', monthly_application_goal: 15 });
+    upsertUserPreferences.mockResolvedValue({ user_id: 'u1', monthly_application_goal: 15 });
     const user = userEvent.setup();
 
     renderWithProviders(<GoalSettings />);
@@ -36,12 +36,14 @@ describe('GoalSettings', () => {
 
     // Not toHaveBeenCalledWith(15) — TanStack Query's mutationFn also
     // receives a second (mutation-context) argument this app never uses.
-    await waitFor(() => expect(upsertMonthlyGoal.mock.calls[0]?.[0]).toBe(15));
+    await waitFor(() =>
+      expect(upsertUserPreferences.mock.calls[0]?.[0]).toEqual({ monthly_application_goal: 15 })
+    );
   });
 
   it('clears the goal when the field is submitted empty', async () => {
     getUserPreferences.mockResolvedValue({ user_id: 'u1', monthly_application_goal: 20 });
-    upsertMonthlyGoal.mockResolvedValue({ user_id: 'u1', monthly_application_goal: null });
+    upsertUserPreferences.mockResolvedValue({ user_id: 'u1', monthly_application_goal: null });
     const user = userEvent.setup();
 
     renderWithProviders(<GoalSettings />);
@@ -50,7 +52,9 @@ describe('GoalSettings', () => {
     await user.clear(input);
     await user.click(screen.getByRole('button', { name: /save/i }));
 
-    await waitFor(() => expect(upsertMonthlyGoal.mock.calls[0]?.[0]).toBe(null));
+    await waitFor(() =>
+      expect(upsertUserPreferences.mock.calls[0]?.[0]).toEqual({ monthly_application_goal: null })
+    );
   });
 
   it('rejects a non-numeric or zero goal without saving', async () => {
@@ -65,6 +69,6 @@ describe('GoalSettings', () => {
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     expect(await screen.findByText(/must be a whole number greater than 0/i)).toBeInTheDocument();
-    expect(upsertMonthlyGoal).not.toHaveBeenCalled();
+    expect(upsertUserPreferences).not.toHaveBeenCalled();
   });
 });

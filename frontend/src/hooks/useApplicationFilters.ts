@@ -1,7 +1,10 @@
 import { useSearchParams } from 'react-router-dom';
+import { AUDIENCE_FILTER_VALUES, type AudienceFilterValue } from '../constants/experienceLevel';
 import { PLATFORM_VALUES, type PlatformSource } from '../constants/platforms';
 import { STATUS_VALUES, type ApplicationStatus } from '../constants/status';
+import { computeExperienceLevel } from '../lib/experienceLevel';
 import type { ApplicationFilters, ApplicationSort, SortField } from '../services/applicationsService';
+import { useUserPreferences } from './useUserPreferences';
 
 const SORT_FIELDS: readonly SortField[] = [
   'company_name',
@@ -16,6 +19,7 @@ const ARCHIVED_VALUES = ['active', 'archived', 'all'] as const;
 
 export function useApplicationFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { graduationDate } = useUserPreferences();
 
   // Validated, not cast: a hand-edited ?status=bogus would otherwise flow
   // into `.in('status', [...])` and return Postgres 22P02.
@@ -31,11 +35,33 @@ export function useApplicationFilters() {
     ? (archivedParam as (typeof ARCHIVED_VALUES)[number])
     : 'active';
 
+  // The one filter with a non-empty default: absent means "apply the
+  // profile-derived stage plus Not specified" (or show everything, with no
+  // graduation date to derive from), not "show everything" the way every
+  // other filter treats an absent parameter. `audience=all` is a distinct,
+  // explicit sentinel for "the user cleared this on purpose" — without it,
+  // zero selected chips and a fresh page load are indistinguishable, and
+  // the default would immediately spring back
+  // (docs/13-profile-and-experience-filtering.md).
+  const audienceParam = searchParams.getAll('audience');
+  let audience: AudienceFilterValue[];
+  if (audienceParam.length === 0) {
+    const derivedStage = computeExperienceLevel(graduationDate);
+    audience = derivedStage ? [derivedStage, 'unspecified'] : [];
+  } else if (audienceParam.includes('all')) {
+    audience = [];
+  } else {
+    audience = audienceParam.filter((a): a is AudienceFilterValue =>
+      AUDIENCE_FILTER_VALUES.includes(a as AudienceFilterValue)
+    );
+  }
+
   const filters: ApplicationFilters = {
     status,
     platform,
     search: searchParams.get('q') ?? undefined,
     archived,
+    audience,
   };
 
   // Client-side only (docs/05 F7) — staleness has no server-side predicate,
@@ -64,6 +90,17 @@ export function useApplicationFilters() {
     if (next.platform !== undefined) {
       params.delete('platform');
       next.platform.forEach((p) => params.append('platform', p));
+    }
+    if (next.audience !== undefined) {
+      params.delete('audience');
+      if (next.audience.length === 0) {
+        // The explicit "cleared on purpose" sentinel — an empty array here
+        // must not become an absent parameter, or the profile-derived
+        // default would immediately re-apply.
+        params.set('audience', 'all');
+      } else {
+        next.audience.forEach((a) => params.append('audience', a));
+      }
     }
     if (next.search !== undefined) {
       if (next.search) params.set('q', next.search);

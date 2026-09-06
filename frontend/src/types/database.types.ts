@@ -56,6 +56,7 @@ export type Database = {
           salary_range: string | null
           status: Database["public"]["Enums"]["application_status"]
           status_changed_at: string
+          target_experience_level: Database["public"]["Enums"]["experience_level"] | null
           updated_at: string
           user_id: string
           work_setup: Database["public"]["Enums"]["work_setup"] | null
@@ -81,6 +82,7 @@ export type Database = {
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
+          target_experience_level?: Database["public"]["Enums"]["experience_level"] | null
           updated_at?: string
           user_id?: string
           work_setup?: Database["public"]["Enums"]["work_setup"] | null
@@ -106,6 +108,7 @@ export type Database = {
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
+          target_experience_level?: Database["public"]["Enums"]["experience_level"] | null
           updated_at?: string
           user_id?: string
           work_setup?: Database["public"]["Enums"]["work_setup"] | null
@@ -186,18 +189,21 @@ export type Database = {
       user_preferences: {
         Row: {
           created_at: string
+          graduation_date: string | null
           monthly_application_goal: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          graduation_date?: string | null
           monthly_application_goal?: number | null
           updated_at?: string
           user_id?: string
         }
         Update: {
           created_at?: string
+          graduation_date?: string | null
           monthly_application_goal?: number | null
           updated_at?: string
           user_id?: string
@@ -218,6 +224,7 @@ export type Database = {
         | "interviewed"
         | "rejected"
         | "accepted"
+      experience_level: "fresh_grad" | "experienced"
       platform_source:
         | "jobstreet"
         | "linkedin"
