@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
+import { EXPERIENCE_LEVEL_LABELS, EXPERIENCE_LEVEL_ORDER } from '../../constants/experienceLevel';
 import { PLATFORM_LABELS, PLATFORM_ORDER } from '../../constants/platforms';
 import { ROUTES } from '../../constants/routes';
 import { STATUS_LABELS, STATUS_ORDER } from '../../constants/status';
@@ -229,6 +230,18 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
               {WORK_SETUP_ORDER.map((w) => (
                 <option key={w} value={w}>
                   {WORK_SETUP_LABELS[w]}
+                </option>
+              ))}
+            </Select>
+            <Select
+              label="Who is this job for?"
+              error={errors.target_experience_level?.message}
+              {...register('target_experience_level')}
+            >
+              <option value="">Not specified</option>
+              {EXPERIENCE_LEVEL_ORDER.map((level) => (
+                <option key={level} value={level}>
+                  {EXPERIENCE_LEVEL_LABELS[level]}
                 </option>
               ))}
             </Select>

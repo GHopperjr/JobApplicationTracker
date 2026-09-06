@@ -15,7 +15,7 @@ vi.mock('./supabaseClient', () => ({
   supabase: { from: (table: string) => from(table) },
 }));
 
-const { getUserPreferences, upsertMonthlyGoal } = await import('./userPreferencesService');
+const { getUserPreferences, upsertUserPreferences } = await import('./userPreferencesService');
 
 describe('getUserPreferences', () => {
   it('returns null when the user has never set any preferences', async () => {
@@ -31,12 +31,12 @@ describe('getUserPreferences', () => {
   });
 });
 
-describe('upsertMonthlyGoal', () => {
+describe('upsertUserPreferences', () => {
   it('upserts on user_id and returns the saved row', async () => {
     const chain = makeChain({ data: { user_id: 'u1', monthly_application_goal: 20 }, error: null });
     from.mockReturnValue(chain);
 
-    const result = await upsertMonthlyGoal(20);
+    const result = await upsertUserPreferences({ monthly_application_goal: 20 });
 
     expect(chain.upsert).toHaveBeenCalledWith(
       { monthly_application_goal: 20 },
@@ -49,10 +49,22 @@ describe('upsertMonthlyGoal', () => {
     const chain = makeChain({ data: { user_id: 'u1', monthly_application_goal: null }, error: null });
     from.mockReturnValue(chain);
 
-    await upsertMonthlyGoal(null);
+    await upsertUserPreferences({ monthly_application_goal: null });
 
     expect(chain.upsert).toHaveBeenCalledWith(
       { monthly_application_goal: null },
+      { onConflict: 'user_id' }
+    );
+  });
+
+  it('upserts the graduation date independently of the goal', async () => {
+    const chain = makeChain({ data: { user_id: 'u1', graduation_date: '2025-03-15' }, error: null });
+    from.mockReturnValue(chain);
+
+    await upsertUserPreferences({ graduation_date: '2025-03-15' });
+
+    expect(chain.upsert).toHaveBeenCalledWith(
+      { graduation_date: '2025-03-15' },
       { onConflict: 'user_id' }
     );
   });

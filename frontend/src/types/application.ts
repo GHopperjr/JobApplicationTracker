@@ -1,4 +1,5 @@
 import type { ApplicationStatus } from '../constants/status';
+import type { ExperienceLevel } from '../constants/experienceLevel';
 import type { PlatformSource } from '../constants/platforms';
 import type { WorkSetup } from '../constants/workSetup';
 import { toDatetimeLocalValue } from '../lib/format';
@@ -21,6 +22,7 @@ export type ApplicationFormValues = {
   // back to one at submission (fromDatetimeLocalValue), the same as
   // ScheduleInterviewModal.
   interview_scheduled_at: string;
+  target_experience_level: ExperienceLevel | '';
 };
 
 // Local calendar date, not UTC — new Date().toISOString() would roll back a
@@ -46,4 +48,5 @@ export const toFormValues = (app?: Application): ApplicationFormValues => ({
   applied_date: app?.applied_date ?? todayISO(),
   notes: app?.notes ?? '',
   interview_scheduled_at: toDatetimeLocalValue(app?.interview_scheduled_at ?? null),
+  target_experience_level: app?.target_experience_level ?? '',
 });

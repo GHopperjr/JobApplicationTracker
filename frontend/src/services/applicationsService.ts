@@ -1,3 +1,4 @@
+import type { AudienceFilterValue } from '../constants/experienceLevel';
 import { PartialImportError, toAppError } from './errors';
 import { geocodeAddress } from './geocodingService';
 import { supabase } from './supabaseClient';
@@ -5,20 +6,27 @@ import type { Database } from '../types/database.types';
 
 export type Application = Database['public']['Tables']['applications']['Row'];
 
-// `work_setup` is an enum column, so the generated Insert/Update types only
-// accept its real values (or null/undefined) — not ''. But these functions
-// runtime-normalize '' -> null for every OPTIONAL_FIELDS entry below
-// (including work_setup), which is exactly what a cleared form Select sends.
-// Widening just this one field's type keeps that contract honest instead of
-// forcing every call site to pre-convert '' to null itself.
+// `work_setup` and `target_experience_level` are enum columns, so the
+// generated Insert/Update types only accept their real values (or
+// null/undefined) — not ''. But these functions runtime-normalize '' -> null
+// for every OPTIONAL_FIELDS entry below (both included), which is exactly
+// what a cleared form Select sends. Widening just these two fields' types
+// keeps that contract honest instead of forcing every call site to
+// pre-convert '' to null itself.
+type EnumFormWidening = {
+  work_setup?: Database['public']['Enums']['work_setup'] | '' | null;
+  target_experience_level?: Database['public']['Enums']['experience_level'] | '' | null;
+};
 export type ApplicationInsert = Omit<
   Database['public']['Tables']['applications']['Insert'],
-  'work_setup'
-> & { work_setup?: Database['public']['Enums']['work_setup'] | '' | null };
+  keyof EnumFormWidening
+> &
+  EnumFormWidening;
 export type ApplicationUpdate = Omit<
   Database['public']['Tables']['applications']['Update'],
-  'work_setup'
-> & { work_setup?: Database['public']['Enums']['work_setup'] | '' | null };
+  keyof EnumFormWidening
+> &
+  EnumFormWidening;
 
 export type ApplicationFilters = {
   status?: Application['status'][];
@@ -26,6 +34,11 @@ export type ApplicationFilters = {
   search?: string;
   /** 'active' (default) | 'archived' | 'all'. Archived rows are excluded unless asked for. */
   archived?: 'active' | 'archived' | 'all';
+  /** Empty means "no audience filter" (show everything) — the empty-array
+   * "show all" convention every other filter here already uses. The
+   * caller-facing "explicitly cleared" sentinel lives in the URL layer
+   * (useApplicationFilters), not here. */
+  audience?: AudienceFilterValue[];
 };
 
 export type SortField =
@@ -68,6 +81,26 @@ export async function listApplications(
   if (filters.status?.length) query = query.in('status', filters.status);
   if (filters.platform?.length) query = query.in('platform_source', filters.platform);
 
+  if (filters.audience?.length) {
+    const realValues = filters.audience.filter((a) => a !== 'unspecified');
+    const includesUnspecified = filters.audience.includes('unspecified');
+
+    if (realValues.length && includesUnspecified) {
+      // .in(…) and .is(…, null) chained together AND — producing zero rows
+      // every time, since a row can't match both. One .or() selects both at
+      // once (docs/13-profile-and-experience-filtering.md). Safe to
+      // interpolate unescaped: these values are drawn from a fixed constant
+      // list, never user input, unlike the search branch below.
+      query = query.or(
+        `target_experience_level.in.(${realValues.join(',')}),target_experience_level.is.null`
+      );
+    } else if (realValues.length) {
+      query = query.in('target_experience_level', realValues);
+    } else if (includesUnspecified) {
+      query = query.is('target_experience_level', null);
+    }
+  }
+
   if (filters.search) {
     const term = escapeOrFilterValue(`%${filters.search}%`);
     query = query.or(`company_name.ilike.${term},job_title.ilike.${term}`);
@@ -107,6 +140,7 @@ const OPTIONAL_FIELDS = [
   'applied_date',
   'notes',
   'work_setup',
+  'target_experience_level',
 ] as const;
 
 // The return type is the strict Supabase-generated shape, not <T>: this is

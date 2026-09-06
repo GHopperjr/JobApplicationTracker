@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EXPERIENCE_LEVEL_VALUES } from '../constants/experienceLevel';
 import { PLATFORM_VALUES } from '../constants/platforms';
 import { STATUS_VALUES } from '../constants/status';
 import { WORK_SETUP_VALUES } from '../constants/workSetup';
@@ -43,6 +44,11 @@ export const applicationSchema = z.object({
   // converted to one at the service boundary. No stricter format check: the
   // native input already constrains what a user can type into it.
   interview_scheduled_at: z.string(),
+
+  // Who the job posting was aimed at — never required (docs/13-profile-and-
+  // experience-filtering.md: a mandatory field here would contradict the
+  // fast-add guarantee).
+  target_experience_level: z.union([z.literal(''), z.enum(EXPERIENCE_LEVEL_VALUES)]),
 });
 
 // Mirrors saved_locations' own check constraints (docs/11's schema) so the

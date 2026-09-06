@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { AudienceFilterValue } from '../../constants/experienceLevel';
 import type { PlatformSource } from '../../constants/platforms';
 import type { ApplicationStatus } from '../../constants/status';
 import { STALE_THRESHOLD_DAYS_DEFAULT } from '../../constants/staleness';
@@ -10,6 +11,7 @@ import { Button } from '../ui/Button';
 import { Chip } from '../ui/Chip';
 import { DropdownMenu } from '../ui/DropdownMenu';
 import { Modal } from '../ui/Modal';
+import { AudienceFilter } from './AudienceFilter';
 import { PlatformFilter } from './PlatformFilter';
 import { StatusFilter } from './StatusFilter';
 
@@ -272,6 +274,15 @@ export function FilterBar({
                 onChange={(platform: PlatformSource[]) => onChange({ platform })}
               />
             </div>
+            <div>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                Career stage
+              </p>
+              <AudienceFilter
+                selected={filters.audience ?? []}
+                onChange={(audience: AudienceFilterValue[]) => onChange({ audience })}
+              />
+            </div>
             {/* Folded into the same sheet rather than a second nested
                 overlay — a dropdown popping out of an already-open bottom
                 sheet is awkward to reach on a phone. */}
@@ -359,6 +370,10 @@ export function FilterBar({
       <PlatformFilter
         selected={filters.platform ?? []}
         onChange={(platform: PlatformSource[]) => onChange({ platform })}
+      />
+      <AudienceFilter
+        selected={filters.audience ?? []}
+        onChange={(audience: AudienceFilterValue[]) => onChange({ audience })}
       />
       <ChipDropdown
         label={`Show: ${archivedLabel}`}

@@ -19,13 +19,23 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
  * Upserts the singleton row rather than requiring the caller to know
  * whether one already exists — `user_id` defaults to `auth.uid()` at the
  * database level, so the conflict target resolves correctly whether this is
- * the first goal ever set or the tenth edit. `null` clears the goal without
- * deleting the row (there is no delete policy on this table by design).
+ * the first preference ever set or the tenth edit. `null` on either field
+ * clears it without deleting the row (there is no delete policy on this
+ * table by design).
+ *
+ * One function for every column on this table rather than one per
+ * preference (`upsertMonthlyGoal`, `upsertGraduationDate`, …) — they're all
+ * the same upsert against the same row, and a second preference
+ * (docs/13-profile-and-experience-filtering.md's graduation date, after
+ * docs/12's monthly goal) is exactly the case that would otherwise start
+ * duplicating this.
  */
-export async function upsertMonthlyGoal(goal: number | null): Promise<UserPreferences> {
+export async function upsertUserPreferences(
+  patch: Partial<Pick<UserPreferences, 'monthly_application_goal' | 'graduation_date'>>
+): Promise<UserPreferences> {
   const { data, error } = await supabase
     .from('user_preferences')
-    .upsert({ monthly_application_goal: goal }, { onConflict: 'user_id' })
+    .upsert(patch, { onConflict: 'user_id' })
     .select()
     .single();
   if (error) throw toAppError(error);
