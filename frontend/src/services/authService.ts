@@ -1,4 +1,4 @@
-import type { Session } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { toAuthError } from './errors';
 import { supabase } from './supabaseClient';
 
@@ -24,4 +24,18 @@ export async function signOut(): Promise<void> {
 export async function getSession(): Promise<Session | null> {
   const { data } = await supabase.auth.getSession();
   return data.session;
+}
+
+/**
+ * The live session subscription — kept here rather than called directly
+ * from AuthContext so every Supabase call in the app stays confined to
+ * services/*.ts, this module included.
+ */
+export function onAuthStateChange(
+  callback: (event: AuthChangeEvent, session: Session | null) => void
+): { unsubscribe: () => void } {
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(callback);
+  return subscription;
 }

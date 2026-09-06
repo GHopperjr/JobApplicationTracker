@@ -45,6 +45,24 @@ export const applicationSchema = z.object({
   interview_scheduled_at: z.string(),
 });
 
+// Mirrors saved_locations' own check constraints (docs/11's schema) so the
+// user gets the real message instead of an opaque 23514.
+export const savedLocationSchema = z.object({
+  label: z.string().trim().min(1, 'Label is required').max(60, 'Keep the label under 60 characters'),
+  address: z
+    .string()
+    .trim()
+    .min(1, 'Address is required')
+    .max(300, 'Keep the address under 300 characters'),
+});
+
+export const credentialsSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
+  // No composition rules — forced symbols/numbers measurably push users
+  // toward weaker, more predictable passwords (docs/05 F1).
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
 const wholeNumber = z.string().regex(/^\d*$/, 'Must be a whole number');
 
 // Validates the Low/High sub-fields of the salary composite control

@@ -4,8 +4,13 @@ import { useToast } from '../../hooks/useToast';
 import { useUserPreferences } from '../../hooks/useUserPreferences';
 import { Button } from '../ui/Button';
 
-// '' clears the goal (upsertMonthlyGoal(null)) — a blank field is a valid,
-// deliberate way to stop tracking a goal, not a validation error.
+// Deliberately NOT in lib/validation.ts with the other form schemas: this
+// one is checked with a direct .safeParse() against local component state
+// (see the render-time sync below), not wired through react-hook-form's
+// zodResolver like every entity form there is — there's no shared
+// "resolver-driven form schema" contract for it to join. '' clears the goal
+// (upsertMonthlyGoal(null)) — a blank field is a valid, deliberate way to
+// stop tracking a goal, not a validation error.
 const goalValueSchema = z.union([
   z.literal(''),
   z.string().regex(/^[1-9]\d*$/, 'Must be a whole number greater than 0'),
