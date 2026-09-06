@@ -4,18 +4,15 @@ const OSRM_BASE_URL = 'https://router.project-osrm.org/route/v1/driving';
 
 export type DrivingRoute = {
   durationSeconds: number;
-  /** The real road-network distance, in metres — distinct from
-   * `haversineKm`'s straight-line figure, and usually longer than it
-   * (docs/11-navigation-and-distance.md). */
+  /** The real road-network distance, in metres (docs/11-navigation-and-distance.md). */
   distanceMeters: number;
 };
 
 /**
  * The driving route between two points via OSRM's public demo server. Like
- * geocodingService, returns `null` rather than throwing on any failure — the
- * drawer still shows the straight-line kilometre distance either way; only
- * the road-distance and "~N min by car" clauses are omitted
- * (docs/11-navigation-and-distance.md).
+ * geocodingService, returns `null` rather than throwing on any failure —
+ * every consumer treats a `null` route as "no distance to show," never an
+ * error (docs/11-navigation-and-distance.md).
  *
  * **This is a free-flow estimate, not a live-traffic-aware one.** OSRM
  * has no live congestion feed and no knowledge of recent road closures —

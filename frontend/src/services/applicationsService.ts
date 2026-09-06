@@ -124,6 +124,20 @@ function normalizeOptionalFields<T extends Record<string, unknown>>(
   return out;
 }
 
+// Whenever an application's own coordinates change, any cached road
+// distance was computed against the old destination and is now wrong — not
+// just stale-by-location-id, since the badge's staleness check compares
+// coordinates, not ids. Every write path that changes location_latitude/
+// location_longitude clears these in the same statement so the cache can
+// never point at a destination that no longer applies
+// (docs/11-navigation-and-distance.md).
+const CLEARED_ROAD_DISTANCE = {
+  road_distance_meters: null,
+  road_duration_seconds: null,
+  road_distance_from_lat: null,
+  road_distance_from_lng: null,
+} as const;
+
 // Fire-and-forget, unlike savedLocationsService's awaited geocode — this is
 // the hot path (every application add/edit), and Realtime is already
 // subscribed to this table (useRealtimeApplications), so the coordinate
@@ -140,7 +154,11 @@ async function geocodeAndPatchLocation(id: string, location: string): Promise<vo
     if (!coords) return;
     await supabase
       .from('applications')
-      .update({ location_latitude: coords.latitude, location_longitude: coords.longitude })
+      .update({
+        location_latitude: coords.latitude,
+        location_longitude: coords.longitude,
+        ...CLEARED_ROAD_DISTANCE,
+      })
       .eq('id', id);
   } catch {
     // A row without coordinates is a valid row — see the null branch every
@@ -152,10 +170,42 @@ async function clearLocationCoordinates(id: string): Promise<void> {
   try {
     await supabase
       .from('applications')
-      .update({ location_latitude: null, location_longitude: null })
+      .update({ location_latitude: null, location_longitude: null, ...CLEARED_ROAD_DISTANCE })
       .eq('id', id);
   } catch {
     // Same contract as above: best-effort cleanup, never an error path.
+  }
+}
+
+/**
+ * Persists the road distance badge's one-time-per-change cache
+ * (docs/11-navigation-and-distance.md). Fire-and-forget from the caller,
+ * same contract as geocodeAndPatchLocation — Realtime carries the patch back
+ * to whichever card requested it, and a failed write just means the badge
+ * tries again on the next render.
+ */
+export async function updateApplicationRoadDistance(
+  id: string,
+  cache: {
+    roadDistanceMeters: number;
+    roadDurationSeconds: number;
+    roadDistanceFromLat: number;
+    roadDistanceFromLng: number;
+  }
+): Promise<void> {
+  try {
+    await supabase
+      .from('applications')
+      .update({
+        road_distance_meters: cache.roadDistanceMeters,
+        road_duration_seconds: cache.roadDurationSeconds,
+        road_distance_from_lat: cache.roadDistanceFromLat,
+        road_distance_from_lng: cache.roadDistanceFromLng,
+      })
+      .eq('id', id);
+  } catch {
+    // Best-effort: the next render that finds the cache still stale simply
+    // tries again.
   }
 }
 
@@ -181,9 +231,19 @@ export async function updateApplication(
   id: string,
   patch: ApplicationUpdate
 ): Promise<Application> {
+  const normalized = normalizeOptionalFields(patch);
+  // A patch that sets location_latitude/longitude directly (the
+  // address-picker path) changes the destination in this same statement, so
+  // the road distance cache must be invalidated here too — the background
+  // geocode path below has its own copy of this because it's a separate
+  // statement, not because the rule differs.
+  if ('location_latitude' in patch || 'location_longitude' in patch) {
+    Object.assign(normalized, CLEARED_ROAD_DISTANCE);
+  }
+
   const { data, error } = await supabase
     .from('applications')
-    .update(normalizeOptionalFields(patch) as Database['public']['Tables']['applications']['Update'])
+    .update(normalized as Database['public']['Tables']['applications']['Update'])
     .eq('id', id)
     .select()
     .single();

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDrivingEta } from '../../hooks/useDrivingEta';
 import { useSavedLocations } from '../../hooks/useSavedLocations';
-import { formatDuration, formatKm, haversineKm, metersToKm } from '../../lib/distance';
+import { formatDuration, formatKm, metersToKm } from '../../lib/distance';
 import type { Application } from '../../services/applicationsService';
 
 type DistanceRowProps = {
@@ -10,18 +10,13 @@ type DistanceRowProps = {
 
 /**
  * The drawer's distance line. Shows OSRM's real road distance once the
- * route resolves — deliberately different from the card badge's
- * straight-line figure (`DistanceBadge`), which stays cheap and
- * network-free. The two numbers can disagree, and that's the point: the
- * badge trades accuracy for zero cost everywhere; the drawer, opened
- * rarely and deliberately, can afford one live call for a materially
- * better number. Verified live: a straight-line 2.8km came from a real
- * 5.35km route, close to Google's own distance for the same real address
- * (docs/11-navigation-and-distance.md).
- *
- * Falls back to the straight-line distance (no ETA clause) while the route
- * is loading or if it fails — the two numbers already fail independently
- * per the routing service's own contract.
+ * route resolves — no straight-line approximation anywhere in this row,
+ * including while switching which saved location to measure from, so the
+ * figure shown always matches the real road route (docs/11-navigation-and-
+ * distance.md). While a route is in flight, or if it fails outright, the
+ * row says so in place of a number rather than showing an approximation
+ * that could be materially wrong (verified live: a straight-line 2.8km once
+ * stood in for a real 5.35km route).
  *
  * Which location to measure from is transient component state, initialised
  * from the default and reset whenever a different application is shown;
@@ -57,22 +52,28 @@ export function DistanceRow({ application }: DistanceRowProps) {
       ? { latitude: application.location_latitude, longitude: application.location_longitude }
       : null;
 
-  const { data: route } = useDrivingEta(from, to);
+  const { data: route, isLoading } = useDrivingEta(from, to);
 
   if (!selected || !from || !to) return null;
-
-  const km = route ? metersToKm(route.distanceMeters) : haversineKm(from, to);
 
   return (
     <div className="flex gap-4 py-1 text-sm">
       <dt className="w-24 shrink-0 text-xs font-medium text-slate-600">Distance</dt>
       <dd className="flex flex-1 flex-wrap items-center justify-between gap-2">
         <div>
-          <span className="text-slate-900">
-            {formatKm(km)} from {selected.label}
-            {route && ` · ${formatDuration(route.durationSeconds)}`}
-          </span>
-          {route && <p className="text-xs text-slate-400">No live traffic factored in</p>}
+          {isLoading ? (
+            <span className="text-slate-400">Calculating distance…</span>
+          ) : route ? (
+            <>
+              <span className="text-slate-900">
+                {formatKm(metersToKm(route.distanceMeters))} from {selected.label} ·{' '}
+                {formatDuration(route.durationSeconds)}
+              </span>
+              <p className="text-xs text-slate-400">No live traffic factored in</p>
+            </>
+          ) : (
+            <span className="text-slate-400">Distance unavailable</span>
+          )}
         </div>
         {locations.length > 1 && (
           <select

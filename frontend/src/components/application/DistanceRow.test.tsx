@@ -52,14 +52,14 @@ describe('DistanceRow', () => {
     await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
-  it('shows the straight-line distance with no ETA while the route has not resolved', async () => {
+  it('shows a loading state while the route has not resolved, with no distance or ETA', async () => {
     listSavedLocations.mockResolvedValue([HOME]);
     getDrivingRoute.mockReturnValue(new Promise(() => {})); // never resolves
 
     renderWithProviders(<DistanceRow application={application()} />);
 
-    expect(await screen.findByText(/km from Home/)).toHaveTextContent('6.6 km from Home');
-    expect(screen.queryByText(/by car/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/calculating distance/i)).toBeInTheDocument();
+    expect(screen.queryByText(/km from Home/)).not.toBeInTheDocument();
     expect(screen.queryByText(/no live traffic/i)).not.toBeInTheDocument();
   });
 
@@ -69,21 +69,18 @@ describe('DistanceRow', () => {
 
     renderWithProviders(<DistanceRow application={application()} />);
 
-    // The exact final text, not a generic pattern — a generic
-    // /km from Home/ match resolves as soon as the straight-line fallback
-    // renders and never waits for the route to actually finish resolving.
     expect(await screen.findByText('5.3 km from Home · ~7 min by car')).toBeInTheDocument();
     expect(screen.getByText(/no live traffic factored in/i)).toBeInTheDocument();
   });
 
-  it('falls back to the straight-line distance (no ETA) if the route fails', async () => {
+  it('shows a fallback message, no straight-line distance, if the route fails', async () => {
     listSavedLocations.mockResolvedValue([HOME]);
     getDrivingRoute.mockResolvedValue(null);
 
     renderWithProviders(<DistanceRow application={application()} />);
 
-    expect(await screen.findByText(/km from Home/)).toHaveTextContent('6.6 km from Home');
-    expect(screen.queryByText(/no live traffic/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/distance unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/km from Home/)).not.toBeInTheDocument();
   });
 
   it('hides the location selector with exactly one saved location', async () => {
@@ -92,7 +89,7 @@ describe('DistanceRow', () => {
 
     renderWithProviders(<DistanceRow application={application()} />);
 
-    await screen.findByText(/km from Home/);
+    await screen.findByText(/distance unavailable/i);
     expect(screen.queryByRole('combobox', { name: /measure distance from/i })).not.toBeInTheDocument();
   });
 
@@ -109,13 +106,13 @@ describe('DistanceRow', () => {
 
   it('lets the user switch which saved location to measure from', async () => {
     listSavedLocations.mockResolvedValue([HOME, OFFICE]);
-    getDrivingRoute.mockResolvedValue(null);
+    getDrivingRoute.mockResolvedValue({ durationSeconds: 300, distanceMeters: 3000 });
     const user = userEvent.setup();
 
     renderWithProviders(<DistanceRow application={application()} />);
 
     const selector = await screen.findByRole('combobox', { name: /measure distance from/i });
-    expect(screen.getByText(/from Home/)).toBeInTheDocument();
+    expect(await screen.findByText(/from Home/)).toBeInTheDocument();
 
     await user.selectOptions(selector, 'loc-2');
 

@@ -408,36 +408,53 @@ address (a building's ground-floor bank, say) is very often not the employer ren
 
 ## Distance and ETA
 
-### Straight-line distance — no API
+All distance figures displayed anywhere in the app are **kilometres**, one decimal below 10 km and
+whole numbers above (`4.2 km`, `18 km`). Metric only — the app's entire context is Philippine, down
+to the peso salary examples in [01](./01-database-schema.md).
 
-Once both points have coordinates, the kilometre figure is **pure client-side arithmetic**. There is
-no service call and nothing to rate-limit:
+### Road distance caching — the card/row badge
 
-```ts
-// lib/distance.ts
-const EARTH_RADIUS_KM = 6371;
+**Corrected after implementation, on user request.** The badge originally showed a straight-line
+figure computed live, client-side, from the two coordinate pairs already on the row (`haversineKm`,
+now removed). That was cheap but visibly disagreed with the drawer's real road distance — a real
+Cavite address's straight-line figure was 2.8 km against an actual 5.35 km road route — which read
+as the app being wrong rather than as two deliberately different numbers, regardless of the
+tooltip's "(straight-line)" caveat.
 
-export function haversineKm(a: Coordinates, b: Coordinates): number {
-  const dLat = toRadians(b.latitude - a.latitude);
-  const dLng = toRadians(b.longitude - a.longitude);
-  const lat1 = toRadians(a.latitude);
-  const lat2 = toRadians(b.latitude);
+The badge now shows the same real road distance as the drawer. Reading it live from OSRM, though,
+would mean one request per visible card — `ApplicationCard`, `TableRow`, and `MobileApplicationRow`
+all render one badge per row, and a full board can have dozens on screen at once. That directly
+violates the "rendering the board costs zero requests" guarantee this feature was built around (see
+*Request volume* below), so the result is **cached on the application row instead**:
 
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
-}
+```sql
+-- 20260906000002_add_road_distance_cache.sql
+alter table public.applications
+  add column road_distance_meters   double precision,
+  add column road_duration_seconds  integer,
+  add column road_distance_from_lat double precision,
+  add column road_distance_from_lng double precision;
 ```
 
-Displayed as **kilometres**, one decimal below 10 km and whole numbers above (`4.2 km`, `18 km`).
-Metric only — the app's entire context is Philippine, down to the peso salary examples in
-[01](./01-database-schema.md).
+`road_distance_from_lat`/`lng` record *which saved location's coordinates* the cache was computed
+against — not its id — because editing that location's own address (without changing which location
+is default) must also invalidate the cache, and comparing coordinates catches that for free.
 
-**This is the number on the card badge**, and it is why the badge costs nothing: by the time a card
-renders, both coordinates are already in the row, and the calculation is a few multiplications.
-`DistanceBadge`'s tooltip says "(straight-line)" explicitly — see below, this figure and the
-drawer's can now legitimately disagree.
+`hooks/useEnsureRoadDistance.ts` is the one place this cache gets warmed: given an application and
+the current default location, it compares the cached coordinates against the location's current
+ones, and — only on a mismatch (including "never computed") — calls OSRM once and persists the
+result via `applicationsService.updateApplicationRoadDistance`, fire-and-forget, the same
+Realtime-carries-the-patch-back pattern as the existing geocode cache. `DistanceBadge` calls this
+hook and otherwise only ever reads the cached columns; it never calls OSRM itself and never falls
+back to a straight-line number. While the cache is missing or stale it renders nothing, the same "no
+placeholder" contract the feature has always had — the badge simply appears a moment after the
+board renders instead of being present immediately.
+
+Every write path that changes an application's own coordinates (the background geocode patch, the
+explicit clear on an emptied location, and the address-picker's direct patch in `updateApplication`)
+clears these four columns in that same statement — the destination changed, so any cached distance
+against the old one is now wrong, and nulling it lets the same staleness check above catch it
+uniformly rather than needing a second signal for "the application itself moved."
 
 ### Driving ETA and road distance — OSRM
 
@@ -448,17 +465,20 @@ GET https://router.project-osrm.org/route/v1/driving/{lng1},{lat1};{lng2},{lat2}
 
 `routes[0].duration` is seconds, `routes[0].distance` is metres.
 
-**Corrected after a real user report, verified against the live endpoint.** The original spec used
-only `duration` and kept the badge's straight-line figure in the drawer too, "so the badge and the
-drawer never disagree." That reasoning turned out to trade away real accuracy for consistency: a
-real Cavite address's straight-line distance was 2.8 km, but the actual road route — confirmed via
-Google Maps and by requesting OSRM's own turn-by-turn steps — was 5.35 km over named streets
-(San Agustin Street → Antero Soriano Highway → General Trias Drive → Marseilla Street → J.K. Mata
-Street → Ave Maria Street), matching Google's 5.5 km far more closely than the straight-line number
-ever could. **The drawer (`DistanceRow`) now shows `routes[0].distance` (via `metersToKm`) once the
-route resolves, and falls back to the straight-line figure only while the route is loading or if it
-fails.** The badge stays straight-line, on purpose — it's the one number allowed to cost nothing,
-and the two now intentionally can disagree, with the badge's tooltip saying so.
+**Corrected twice after implementation, both times against real evidence.** The original spec used
+only `duration` and kept a straight-line figure everywhere, "so the badge and the drawer never
+disagree." That traded away real accuracy for consistency: a real Cavite address's straight-line
+distance was 2.8 km, but the actual road route — confirmed via Google Maps and by requesting OSRM's
+own turn-by-turn steps — was 5.35 km over named streets (San Agustin Street → Antero Soriano Highway
+→ General Trias Drive → Marseilla Street → J.K. Mata Street → Ave Maria Street), matching Google's
+5.5 km far more closely than the straight-line number ever could. The first correction made the
+drawer (`DistanceRow`) show `routes[0].distance` (via `metersToKm`) once the route resolves, falling
+back to the straight-line figure while loading or on failure — but a user later pointed out that
+fallback still visibly disagreed with the real number whenever it appeared (most noticeably while
+switching which saved location to measure from). The second correction removed the straight-line
+fallback everywhere: `DistanceRow` now shows "Calculating distance…" while the route is in flight and
+"Distance unavailable" if it fails, never an approximated number, and the badge reads a cache of the
+same real figure instead of computing its own (see *Road distance caching* above).
 
 **The duration is still a free-flow estimate, not a live-traffic-aware one.** For that same real
 route, OSRM returned 7 minutes — implying ~46 km/h average — while Google's live-traffic routing
@@ -475,16 +495,17 @@ reverse of how they are stored.** This ordering trap is the most common OSRM int
 service layer takes typed `Coordinates` objects and does the flip in exactly one place, so no call
 site can get it wrong.
 
-**ETA is computed live, on demand, only when the drawer is open.** It is not stored and not cached:
+**The drawer's whole route — distance and ETA together — is computed live, on demand, only when the
+drawer is open. Neither is stored or cached there**, unlike the badge's distance-only cache:
 
 - It depends on a *pair* (which saved location × which application), so caching it means caching
   N×M values and invalidating them whenever either side moves.
 - The drawer is opened rarely and deliberately — this is not a per-card cost.
-- Travel time is the one number here with a legitimate reason to be recomputed rather than
-  remembered.
+- The user can switch which saved location to measure from mid-view, which the badge's
+  single-default-location cache never needs to handle.
 
-If the routing call fails or is slow, the drawer still shows the kilometre distance; only the "~N
-min by car" clause is omitted. The two numbers fail independently.
+If the routing call fails or is slow, `DistanceRow` shows "Calculating distance…" or "Distance
+unavailable" in place of a number — never an approximated one (see the correction above).
 
 ### Why no transit ETA
 
@@ -514,12 +535,16 @@ The reason two community-run endpoints are an acceptable dependency:
 | Add/edit a saved location | 1 | 0 | A handful of times, ever |
 | Add an application | 1 | 0 | A few per week during an active search |
 | Edit an application's location | 1 | 0 | Rare |
-| Open the detail drawer | 0 | 1 | Several per day at most |
-| Render the board or table | **0** | **0** | Constantly |
+| Open the detail drawer | 0 | 1 per location switch | Several per day at most |
+| A card's road-distance cache is stale | 0 | 1, once, self-healing | Once per application, only right after it's added or the default location changes |
+| Render the board or table (steady state) | **0** | **0** | Constantly |
 
-The last row is the important one. The common case — looking at the board, scrolling, filtering,
-switching views — makes **no external requests at all**, because every distance on screen is
-arithmetic over columns already fetched with the row.
+The last row is the important one, and the one before it is the trade-off that keeps it true. The
+common case — looking at the board, scrolling, filtering, switching views — makes **no external
+requests at all** once every visible card's road-distance cache is warm, because the badge then only
+ever reads columns already fetched with the row. The one time that isn't true is right after adding
+an application or changing the default saved location, when each newly-stale card fires exactly one
+OSRM call the first time it renders, then never again until something changes its inputs.
 
 ---
 
@@ -547,21 +572,23 @@ Distance    12.4 km from Home · ~22 min by car        [Home ▾]
             No live traffic factored in
 ```
 
-The km figure is the **real road distance** (`routes[0].distance`) once OSRM resolves — falling back
-to the straight-line figure, with no ETA clause, while it's loading or if it fails. The caveat line
-appears only alongside a resolved ETA — there's nothing to caveat about a plain straight-line number.
+The km figure is always the **real road distance** (`routes[0].distance`) — while it's loading, the
+line reads "Calculating distance…" instead of a number; if the route fails, "Distance unavailable."
+Neither state ever shows an approximated figure (see the correction two sections up).
 
 The selector only renders when the user has more than one saved location; with exactly one, the
 label is stated inline and there is nothing to choose. The selection is component state — it is not
-persisted and resets to the default location each time the drawer opens.
+persisted and resets to the default location each time the drawer opens. Switching it re-triggers
+the same loading/resolved/unavailable states above for the newly selected pair.
 
 ### Card and row badge
 
-A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **straight-line
-kilometres only, no ETA and no live call**. The card's meta line is already carrying three values; a
-travel-time clause there would crowd it, and the ETA is exactly the sort of detail the drawer exists
-for. Its tooltip says "(straight-line)" — this figure and the drawer's real road distance can
-legitimately differ, sometimes by a lot, when the roads between two points aren't direct.
+A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **the same
+real road distance as the drawer, read from the cache described under *Road distance caching*
+above, no ETA**. The card's meta line is already carrying three values; a travel-time clause there
+would crowd it, and the ETA is exactly the sort of detail the drawer exists for. Its tooltip states
+the saved location's label only — the figure now matches the drawer's, so there is nothing left to
+caveat.
 
 `MobileApplicationRow` and `TableRow` get the same treatment in their meta lines.
 
@@ -571,7 +598,10 @@ The distance UI — badge and drawer row alike — renders nothing at all when:
 
 - the user has no saved locations, or
 - the selected saved location has no coordinates, or
-- the application's location has no coordinates.
+- the application's location has no coordinates, or
+- (badge only) the road-distance cache hasn't resolved yet — see *Road distance caching* above;
+  this is transient, not a permanent state, and self-heals within one render cycle of a background
+  OSRM call.
 
 **No placeholders, no "unknown", no empty-state prompts inside the cards.** A user who has not set
 up a saved location sees precisely the app they see today. This is the difference between an
@@ -589,16 +619,18 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 | `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion; accepts pre-resolved coordinates from the picker to skip a redundant geocode |
 | `services/geocodingService.ts` | `searchPlaces` (multi-result, backs the picker) and `geocodeAddress` (single-result write-time fallback, built on top of it). Neither throws |
 | `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns `DrivingRoute { durationSeconds, distanceMeters } \| null` |
-| `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`, `metersToKm`. Pure functions, no I/O |
+| `services/applicationsService.ts` | `updateApplicationRoadDistance` persists the badge's cache; every coordinate-changing write path clears it in the same statement |
+| `lib/distance.ts` | `formatKm`, `formatDuration`, `metersToKm`. Pure functions, no I/O |
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
 | `hooks/useDefaultLocation.ts` | The selected/default location for distance display |
 | `hooks/useDrivingEta.ts` | The on-demand routing query, drawer only, `enabled` on both coordinate pairs existing |
+| `hooks/useEnsureRoadDistance.ts` | Warms the badge's road-distance cache in the background, once per staleness, never at render time |
 | `hooks/useSidebarCollapsed.ts` | The desktop collapse preference, `localStorage`-backed like `useStaleThreshold` |
 | `components/layout/Sidebar.tsx` | Nav shell, including the desktop collapse toggle and its width animation |
 | `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
-| `components/application/DistanceBadge.tsx` | The card/row badge — straight-line only, no live call |
-| `components/application/DistanceRow.tsx` | The drawer's distance line — real road distance once OSRM resolves, straight-line fallback otherwise |
+| `components/application/DistanceBadge.tsx` | The card/row badge — reads the road-distance cache, calls `useEnsureRoadDistance` to keep it warm, never calls OSRM itself |
+| `components/application/DistanceRow.tsx` | The drawer's distance line — real road distance once OSRM resolves; "Calculating distance…" or "Distance unavailable" otherwise, never an approximation |
 
 **`geocodingService` and `routingService` return `null` rather than throwing.** They are the only
 two modules in the app that talk to a service which is allowed to be unavailable without it being an
@@ -614,10 +646,12 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 
 **Unit — the bulk of the value here.**
 
-- `haversineKm` against known city-pair distances, tolerance ±1%.
-- `haversineKm` for identical points returns 0, and for antipodal points returns ~20,015 km.
 - `formatKm` boundary: `9.94 → "9.9 km"`, `10.4 → "10 km"`.
 - The lng/lat flip in `routingService` — assert the URL string, since this is the trap.
+- `useEnsureRoadDistance`: no-ops with no saved location, no application coordinates, or an
+  already-valid cache; computes and persists once when the cache is missing or was computed against
+  a different location's coordinates; never persists anything when the route lookup fails; never
+  fires a second lookup on a re-render with the same still-stale inputs (the in-flight guard).
 
 **Service (mocked client/fetch).**
 
@@ -627,9 +661,10 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 
 **Component.**
 
-- The badge renders nothing when either coordinate is missing.
-- The drawer omits the ETA clause when routing returns `null` but still shows the straight-line
-  kilometres as a fallback.
+- The badge renders nothing when either coordinate is missing, the cache hasn't resolved yet, or the
+  cache was computed against a different location's coordinates than the current default.
+- The drawer shows "Calculating distance…" while the route is in flight, and "Distance unavailable"
+  if it fails — never a straight-line number in either state.
 - The drawer switches to the real road distance and the "No live traffic factored in" caveat once
   the route resolves — and only then; a still-loading or failed route never shows the caveat.
 - The saved-location form surfaces validation errors and blocks submit, like every other form.
@@ -671,8 +706,15 @@ this adequately.
   per API, never inline at a call site.
 - **Coordinates are nullable and frequently null.** Every read path needs the null branch — this is
   the normal case for remote roles, not an edge case.
-- **Do not cache the ETA.** It is a per-pair value; caching it introduces an invalidation problem
-  for a number that costs nothing to recompute.
+- **Do not cache the drawer's ETA.** It is a per-pair value (which saved location × which
+  application); caching it introduces an invalidation problem for a number this feature would
+  otherwise happily recompute every time. This is a different question from the badge's road
+  distance, which *is* cached — the badge only ever measures from one location (the default), not an
+  arbitrary pair, so there's exactly one value to keep warm per application, not N×M.
+- **Invalidate the badge's cache by coordinates, not by saved-location id.** Editing the default
+  location's own address (without changing which location is default) must also invalidate every
+  application's cached distance — `road_distance_from_lat`/`lng` exist specifically so that check
+  doesn't need a second signal for that case.
 - **Do not add a second default location by hand.** The partial unique index will reject it; promote
   by clearing then setting.
 - **`is_default` is not "the location the drawer is showing."** The drawer's selection is transient

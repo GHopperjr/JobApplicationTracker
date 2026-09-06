@@ -48,6 +48,10 @@ export type Database = {
           location_longitude: number | null
           notes: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat: number | null
+          road_distance_from_lng: number | null
+          road_distance_meters: number | null
+          road_duration_seconds: number | null
           salary_range: string | null
           status: Database["public"]["Enums"]["application_status"]
           status_changed_at: string
@@ -68,6 +72,10 @@ export type Database = {
           location_longitude?: number | null
           notes?: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat?: number | null
+          road_distance_from_lng?: number | null
+          road_distance_meters?: number | null
+          road_duration_seconds?: number | null
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
@@ -88,6 +96,10 @@ export type Database = {
           location_longitude?: number | null
           notes?: string | null
           platform_source?: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat?: number | null
+          road_distance_from_lng?: number | null
+          road_distance_meters?: number | null
+          road_duration_seconds?: number | null
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
