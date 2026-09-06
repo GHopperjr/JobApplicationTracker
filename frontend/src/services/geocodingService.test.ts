@@ -95,7 +95,20 @@ describe('geocodeAddress', () => {
 
   it('returns null when the address resolves to nothing', async () => {
     stubFetch(async () => ({ ok: true, json: async () => featureCollection() }));
-    await expect(geocodeAddress('Remote')).resolves.toBeNull();
+    await expect(geocodeAddress('a made-up place that does not exist')).resolves.toBeNull();
+  });
+
+  it('short-circuits known non-address placeholders without calling the API', async () => {
+    // Verified live against the real Photon endpoint: "Remote (PH)" does not
+    // fail to resolve on its own — it returns a fuzzy, unrelated match
+    // hundreds of km away. Caught by testing against the live service, not
+    // by the mocked tests alone.
+    const fetchMock = stubFetch(async () => ({ ok: true, json: async () => featureCollection(pnbFeature) }));
+
+    for (const placeholder of ['Remote', 'remote (ph)', 'Work From Home', '  n/a  ', 'TBD']) {
+      await expect(geocodeAddress(placeholder)).resolves.toBeNull();
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('returns null on a non-200 rather than throwing', async () => {

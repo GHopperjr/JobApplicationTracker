@@ -92,6 +92,32 @@ export async function searchPlaces(query: string, limit = 5): Promise<PlaceSugge
   }
 }
 
+// Verified live against Photon: "Remote (PH)" does not fail to resolve —
+// it returns a fuzzy, unrelated match hundreds of km away, rather than the
+// clean "no match" docs/11-navigation-and-distance.md's "What does not
+// geocode" section assumed. Checked only in geocodeAddress (the silent
+// write-time fallback), not in searchPlaces (the live picker), where a user
+// looking at real search results before picking one is a fundamentally
+// safer situation — a bad match there just isn't clicked.
+const NON_ADDRESS_PLACEHOLDERS = new Set([
+  'remote',
+  'remote (ph)',
+  'remote ph',
+  'fully remote',
+  'work from home',
+  'wfh',
+  'anywhere',
+  'n/a',
+  'na',
+  'tbd',
+  'tba',
+]);
+
+function looksLikeRealAddress(address: string): boolean {
+  const normalized = address.trim().toLowerCase();
+  return normalized.length > 0 && !NON_ADDRESS_PLACEHOLDERS.has(normalized);
+}
+
 /**
  * Resolves a single address to a point — the write-time fallback used when
  * a row is saved without going through the search-as-you-type picker (a
@@ -106,6 +132,7 @@ export async function searchPlaces(query: string, limit = 5): Promise<PlaceSugge
  * point or it does not resolve.
  */
 export async function geocodeAddress(address: string): Promise<Coordinates | null> {
+  if (!looksLikeRealAddress(address)) return null;
   const [first] = await searchPlaces(address, 1);
   return first?.coordinates ?? null;
 }

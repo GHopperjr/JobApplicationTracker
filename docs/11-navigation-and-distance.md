@@ -328,6 +328,17 @@ The first two produce null coordinates and no distance UI. The third resolves an
 that is only as precise as what the user typed — which is acceptable, because the user typed it and
 can see what they typed.
 
+**Correction, verified live against Photon:** the second bullet's premise was wrong.
+`geocodeAddress("Remote (PH)")` does not fail to resolve on its own — Photon's fuzzy matching
+returned a real coordinate hundreds of km away (Mindanao), not a clean "no match." A mocked test
+suite alone never would have caught this, since a mock only proves the code handles the response
+*you wrote*. `geocodeAddress` now checks a short denylist of known non-address placeholders
+("remote", "remote (ph)", "work from home", "wfh", "anywhere", "n/a", "tbd", "tba", …) and returns
+`null` immediately, before any request — verified against the live endpoint after the fix. This
+check lives only in `geocodeAddress` (the silent write-time fallback), not in `searchPlaces` (the
+live picker): a user looking at real search results before picking one is a fundamentally safer
+situation than a value being silently geocoded with no one watching.
+
 ### Search-as-you-type
 
 **Added after the original spec, in response to a real precision problem it caused.** A single
@@ -408,6 +419,13 @@ GET https://router.project-osrm.org/route/v1/driving/{lng1},{lat1};{lng2},{lat2}
 `routes[0].duration` is seconds, `routes[0].distance` is metres. Only the duration is used; the
 kilometre figure shown stays the straight-line one, so the badge and the drawer never disagree with
 each other.
+
+**This is a free-flow estimate, not a live-traffic-aware one.** OSRM routes over the real road
+network (real streets, one-way restrictions, actual connectivity) — verified live: a real 5 km
+Metro Manila route returned "~10 min by car" — but it has no live congestion feed, so it reflects
+road-network travel time under good conditions, not "right now" Metro Manila traffic. No free,
+zero-cost routing service provides live-traffic ETAs; this is an inherent property of the choice,
+not a bug.
 
 **Coordinates are `longitude,latitude` — the reverse of every other API in this feature, and the
 reverse of how they are stored.** This ordering trap is the most common OSRM integration bug. The
