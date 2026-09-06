@@ -90,7 +90,13 @@ export function AppShell() {
           this app uses on mobile (docs/11-navigation-and-distance.md). */}
       {!isMobile && <Sidebar />}
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      {/* min-w-0 overrides a flex item's default min-width: auto — without
+          it, this column refuses to shrink below its widest descendant's
+          natural width (the Kanban board's un-scrolled column set), so the
+          whole column — header included — grows past the viewport instead
+          of the board's own overflow-x-auto ever getting a chance to
+          scroll internally. */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur-md">
           {isMobile ? (
             <div className="flex flex-col gap-2 px-4 py-2">

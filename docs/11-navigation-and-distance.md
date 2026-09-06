@@ -142,7 +142,7 @@ on navigation.
 ```tsx
 <div className="flex min-h-screen">
   {!isMobile && <Sidebar />}
-  <div className="flex min-h-screen flex-1 flex-col">
+  <div className="flex min-h-screen min-w-0 flex-1 flex-col">
     <header>…</header>
     <main><Outlet /></main>
   </div>
@@ -152,6 +152,15 @@ on navigation.
 `Sidebar` is a new component under `components/layout/`. Nav items come from a single exported
 array so that adding Archive or Metrics later is a one-line change in one file, not an edit in
 three places.
+
+**Corrected after implementation:** the content column originally omitted `min-w-0`. A flex item's
+default `min-width` is `auto`, which means it refuses to shrink below its widest descendant's
+intrinsic content width — here, the Kanban board's un-scrolled column set. Board view (five columns
+wider than most viewports) forced the whole content column, header included, past the viewport
+instead of letting the board's own `overflow-x-auto` scroll internally, which is why switching to
+Board view visibly cut off both the header's right-side content and the fifth column while Table
+view (whose content fits) looked fine. `min-w-0` overrides that default and gives every descendant,
+including the sticky header, a hard containing-block width to clip against.
 
 ---
 
