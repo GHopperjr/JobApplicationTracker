@@ -17,4 +17,10 @@ export const queryKeys = {
   savedLocations: {
     all: ['saved-locations'] as const,
   },
+  statusHistory: {
+    all: ['status-history'] as const,
+  },
+  userPreferences: {
+    all: ['user-preferences'] as const,
+  },
 };

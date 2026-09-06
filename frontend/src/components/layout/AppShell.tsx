@@ -25,9 +25,14 @@ export function AppShell() {
   const { pathname } = useLocation();
 
   // The header's view toggle and Add button belong to the Job Applications
-  // page, not the shell — Settings shares this header and has neither.
+  // page, not the shell — Settings and Metrics share this header and have
+  // neither.
   const isApplicationsPage = pathname.startsWith(ROUTES.applications);
-  const title = isApplicationsPage ? 'Job Applications' : 'Settings';
+  const title = isApplicationsPage
+    ? 'Job Applications'
+    : pathname.startsWith(ROUTES.metrics)
+      ? 'Interview Metrics'
+      : 'Settings';
   // The archive view is table-only (docs/05 F9) — a Kanban board of
   // applications that aren't in the pipeline is a contradiction, so the
   // toggle that would switch to it is hidden rather than disabled.

@@ -64,6 +64,13 @@ One idea holds the whole page together.
 **A period selector defines a cohort — applications whose `created_at` falls in the selected range —
 and every section computes over that same cohort.**
 
+**The cohort includes archived applications.** Archiving hides an application from the active
+board and table (docs/06's Phase 7), it does not erase that it happened — an application archived
+after being rejected still counts toward "Applied" and, if it was interviewed first, still reached
+that stage. The funnel is a historical accounting of a job search, the same "history is the whole
+truth" philosophy `status_history` already applies; a metrics page that quietly excluded archived
+rows would undercount both without any visible sign that it had.
+
 | Period | Cohort |
 |---|---|
 | This Month | Applications created in the current calendar month |
