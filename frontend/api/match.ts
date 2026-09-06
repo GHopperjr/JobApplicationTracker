@@ -1,6 +1,13 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { buildMatchPrompt } from './_lib/matchPrompt';
+// The .js extension is deliberate, not a typo: TypeScript resolves it to
+// matchPrompt.ts at compile time (standard practice for code written for
+// Node ESM resolution), but Vercel's own build-time type-check runs under
+// `--moduleResolution node16`/`nodenext`, which requires relative ESM
+// imports to be fully specified — confirmed via a real deployment's build
+// log, which flagged this extension-less import as an error even though it
+// didn't block the deployment outright.
+import { buildMatchPrompt } from './_lib/matchPrompt.js';
 
 // Constructed once per cold start, not per request — GoogleGenAI itself
 // does no network call until generateContent runs.

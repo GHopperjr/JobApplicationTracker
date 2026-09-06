@@ -249,6 +249,17 @@ regardless, since none of them exercise Vercel's own function-packaging step; on
 invocation surfaces this. The `_` prefix on `api/_lib/` keeps Vercel from treating the folder as a
 route.
 
+**Second correction, found the same way:** moving the file into `api/` was necessary but not
+sufficient. `api/match.ts`'s import of it still needs a fully-specified `.js` extension —
+`./_lib/matchPrompt.js`, not `./_lib/matchPrompt` — because Vercel's function runtime is native
+Node ESM, which (unlike a bundler-mode build) never guesses extensions on relative specifiers.
+Writing `.js` while the real file is `.ts` is standard practice for code targeting Node's ESM
+resolution, not a typo: TypeScript resolves it to the `.ts` source at compile time. This is exactly
+why `tsconfig.api.json` now sets `module: "nodenext"` (matching `tsconfig.node.json`'s existing
+treatment of `vite.config.ts`) instead of the more lenient `moduleResolution: "bundler"` it started
+with — the original setting didn't require extensions, which is precisely how this passed every
+local check while still failing against the real deployment.
+
 ### Why a Vercel function rather than a Supabase Edge Function
 
 The frontend already deploys to Vercel with git-based auto-deploy. A file under `api/` is
@@ -411,9 +422,12 @@ good is a manual, occasional check, not a suite.
   non-SPA route this project has ever had; `vercel.json`'s catch-all rewrite is expected not to
   shadow it, but "expected" is not the same as "confirmed against a real deployment."
 - **Everything `api/match.ts` imports must live inside `api/`, never a relative path out into
-  `src/`.** Confirmed the hard way: the first deployment crashed on every single invocation with
-  `ERR_MODULE_NOT_FOUND` for exactly that kind of import, undetectable by `tsc`/`vitest`/
-  `vite build` since none of them run Vercel's own function bundler.
+  `src/`, and every relative import needs an explicit `.js` extension.** Confirmed the hard way,
+  twice: the first deployment crashed on every invocation with `ERR_MODULE_NOT_FOUND` for a
+  cross-boundary import, and after fixing that, the same class of failure recurred for the same
+  import missing its extension. Neither was detectable by `tsc`/`vitest`/`vite build` under the
+  original `tsconfig.api.json` — only `module: "nodenext"` (the current setting) catches the
+  extension issue locally, and only a real deployment ever caught the location issue at all.
 
 ---
 
