@@ -408,24 +408,39 @@ Metric only — the app's entire context is Philippine, down to the peso salary 
 
 **This is the number on the card badge**, and it is why the badge costs nothing: by the time a card
 renders, both coordinates are already in the row, and the calculation is a few multiplications.
+`DistanceBadge`'s tooltip says "(straight-line)" explicitly — see below, this figure and the
+drawer's can now legitimately disagree.
 
-### Driving ETA — OSRM
+### Driving ETA and road distance — OSRM
 
 ```
 GET https://router.project-osrm.org/route/v1/driving/{lng1},{lat1};{lng2},{lat2}
       ?overview=false
 ```
 
-`routes[0].duration` is seconds, `routes[0].distance` is metres. Only the duration is used; the
-kilometre figure shown stays the straight-line one, so the badge and the drawer never disagree with
-each other.
+`routes[0].duration` is seconds, `routes[0].distance` is metres.
 
-**This is a free-flow estimate, not a live-traffic-aware one.** OSRM routes over the real road
-network (real streets, one-way restrictions, actual connectivity) — verified live: a real 5 km
-Metro Manila route returned "~10 min by car" — but it has no live congestion feed, so it reflects
-road-network travel time under good conditions, not "right now" Metro Manila traffic. No free,
-zero-cost routing service provides live-traffic ETAs; this is an inherent property of the choice,
-not a bug.
+**Corrected after a real user report, verified against the live endpoint.** The original spec used
+only `duration` and kept the badge's straight-line figure in the drawer too, "so the badge and the
+drawer never disagree." That reasoning turned out to trade away real accuracy for consistency: a
+real Cavite address's straight-line distance was 2.8 km, but the actual road route — confirmed via
+Google Maps and by requesting OSRM's own turn-by-turn steps — was 5.35 km over named streets
+(San Agustin Street → Antero Soriano Highway → General Trias Drive → Marseilla Street → J.K. Mata
+Street → Ave Maria Street), matching Google's 5.5 km far more closely than the straight-line number
+ever could. **The drawer (`DistanceRow`) now shows `routes[0].distance` (via `metersToKm`) once the
+route resolves, and falls back to the straight-line figure only while the route is loading or if it
+fails.** The badge stays straight-line, on purpose — it's the one number allowed to cost nothing,
+and the two now intentionally can disagree, with the badge's tooltip saying so.
+
+**The duration is still a free-flow estimate, not a live-traffic-aware one.** For that same real
+route, OSRM returned 7 minutes — implying ~46 km/h average — while Google's live-traffic routing
+(navigating around an actual road closure OSRM's static road graph didn't know about) returned
+18–19 minutes. OSRM has no live congestion feed and no knowledge of recent closures, so its road
+*distance* is reliable (real road-network routing, confirmed above) while its *duration* is a
+best-case lower bound, not a prediction. No free, zero-cost routing service provides live-traffic
+ETAs; this is inherent to the choice, not a bug — which is why `DistanceRow` prints "No live traffic
+factored in" directly beneath the ETA whenever a route resolves, rather than only saying so in a
+document a user never sees.
 
 **Coordinates are `longitude,latitude` — the reverse of every other API in this feature, and the
 reverse of how they are stored.** This ordering trap is the most common OSRM integration bug. The
@@ -501,7 +516,12 @@ A new row in the existing detail list, between Location and Work setup:
 
 ```
 Distance    12.4 km from Home · ~22 min by car        [Home ▾]
+            No live traffic factored in
 ```
+
+The km figure is the **real road distance** (`routes[0].distance`) once OSRM resolves — falling back
+to the straight-line figure, with no ETA clause, while it's loading or if it fails. The caveat line
+appears only alongside a resolved ETA — there's nothing to caveat about a plain straight-line number.
 
 The selector only renders when the user has more than one saved location; with exactly one, the
 label is stated inline and there is nothing to choose. The selection is component state — it is not
@@ -509,9 +529,11 @@ persisted and resets to the default location each time the drawer opens.
 
 ### Card and row badge
 
-A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **kilometres
-only, no ETA**. The card's meta line is already carrying three values; a travel-time clause there
-would crowd it, and the ETA is exactly the sort of detail the drawer exists for.
+A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **straight-line
+kilometres only, no ETA and no live call**. The card's meta line is already carrying three values; a
+travel-time clause there would crowd it, and the ETA is exactly the sort of detail the drawer exists
+for. Its tooltip says "(straight-line)" — this figure and the drawer's real road distance can
+legitimately differ, sometimes by a lot, when the roads between two points aren't direct.
 
 `MobileApplicationRow` and `TableRow` get the same treatment in their meta lines.
 
@@ -538,15 +560,16 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 |---|---|
 | `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion; accepts pre-resolved coordinates from the picker to skip a redundant geocode |
 | `services/geocodingService.ts` | `searchPlaces` (multi-result, backs the picker) and `geocodeAddress` (single-result write-time fallback, built on top of it). Neither throws |
-| `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns seconds \| null |
-| `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`. Pure functions, no I/O |
+| `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns `DrivingRoute { durationSeconds, distanceMeters } \| null` |
+| `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`, `metersToKm`. Pure functions, no I/O |
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
 | `hooks/useDefaultLocation.ts` | The selected/default location for distance display |
 | `hooks/useDrivingEta.ts` | The on-demand routing query, drawer only, `enabled` on both coordinate pairs existing |
 | `components/layout/Sidebar.tsx` | Nav shell |
 | `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
-| `components/application/DistanceBadge.tsx` | The shared km badge used by card, row, and mobile row |
+| `components/application/DistanceBadge.tsx` | The card/row badge — straight-line only, no live call |
+| `components/application/DistanceRow.tsx` | The drawer's distance line — real road distance once OSRM resolves, straight-line fallback otherwise |
 
 **`geocodingService` and `routingService` return `null` rather than throwing.** They are the only
 two modules in the app that talk to a service which is allowed to be unavailable without it being an
@@ -576,7 +599,10 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 **Component.**
 
 - The badge renders nothing when either coordinate is missing.
-- The drawer omits the ETA clause when routing returns `null` but still shows kilometres.
+- The drawer omits the ETA clause when routing returns `null` but still shows the straight-line
+  kilometres as a fallback.
+- The drawer switches to the real road distance and the "No live traffic factored in" caveat once
+  the route resolves — and only then; a still-loading or failed route never shows the caveat.
 - The saved-location form surfaces validation errors and blocks submit, like every other form.
 - `AddressAutocomplete`: no search below the minimum query length; no search fires merely from a
   pre-filled value on mount; picking a suggestion fills the field and reports its coordinates;

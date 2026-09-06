@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDrivingEta } from '../../hooks/useDrivingEta';
 import { useSavedLocations } from '../../hooks/useSavedLocations';
-import { formatDuration, formatKm, haversineKm } from '../../lib/distance';
+import { formatDuration, formatKm, haversineKm, metersToKm } from '../../lib/distance';
 import type { Application } from '../../services/applicationsService';
 
 type DistanceRowProps = {
@@ -9,10 +9,19 @@ type DistanceRowProps = {
 };
 
 /**
- * The drawer's distance line: kilometres from a saved location, plus a
- * driving ETA when routing answers. The two numbers fail independently — a
- * slow or failed OSRM call omits only the "~N min by car" clause
+ * The drawer's distance line. Shows OSRM's real road distance once the
+ * route resolves — deliberately different from the card badge's
+ * straight-line figure (`DistanceBadge`), which stays cheap and
+ * network-free. The two numbers can disagree, and that's the point: the
+ * badge trades accuracy for zero cost everywhere; the drawer, opened
+ * rarely and deliberately, can afford one live call for a materially
+ * better number. Verified live: a straight-line 2.8km came from a real
+ * 5.35km route, close to Google's own distance for the same real address
  * (docs/11-navigation-and-distance.md).
+ *
+ * Falls back to the straight-line distance (no ETA clause) while the route
+ * is loading or if it fails — the two numbers already fail independently
+ * per the routing service's own contract.
  *
  * Which location to measure from is transient component state, initialised
  * from the default and reset whenever a different application is shown;
@@ -48,18 +57,23 @@ export function DistanceRow({ application }: DistanceRowProps) {
       ? { latitude: application.location_latitude, longitude: application.location_longitude }
       : null;
 
-  const { data: etaSeconds } = useDrivingEta(from, to);
+  const { data: route } = useDrivingEta(from, to);
 
   if (!selected || !from || !to) return null;
+
+  const km = route ? metersToKm(route.distanceMeters) : haversineKm(from, to);
 
   return (
     <div className="flex gap-4 py-1 text-sm">
       <dt className="w-24 shrink-0 text-xs font-medium text-slate-600">Distance</dt>
-      <dd className="flex flex-1 flex-wrap items-center justify-between gap-2 text-slate-900">
-        <span>
-          {formatKm(haversineKm(from, to))} from {selected.label}
-          {typeof etaSeconds === 'number' && ` · ${formatDuration(etaSeconds)}`}
-        </span>
+      <dd className="flex flex-1 flex-wrap items-center justify-between gap-2">
+        <div>
+          <span className="text-slate-900">
+            {formatKm(km)} from {selected.label}
+            {route && ` · ${formatDuration(route.durationSeconds)}`}
+          </span>
+          {route && <p className="text-xs text-slate-400">No live traffic factored in</p>}
+        </div>
         {locations.length > 1 && (
           <select
             aria-label="Measure distance from"

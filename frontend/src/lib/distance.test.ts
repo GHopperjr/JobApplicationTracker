@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, formatKm, haversineKm } from './distance';
+import { formatDuration, formatKm, haversineKm, metersToKm } from './distance';
 
 const MANILA = { latitude: 14.5995, longitude: 120.9842 };
 const CEBU = { latitude: 10.3157, longitude: 123.8854 };
@@ -53,5 +53,12 @@ describe('formatDuration', () => {
   it('renders OSRM seconds as whole minutes by car', () => {
     expect(formatDuration(1320)).toBe('~22 min by car');
     expect(formatDuration(95)).toBe('~2 min by car');
+  });
+});
+
+describe('metersToKm', () => {
+  it('converts OSRM’s metre distance to kilometres', () => {
+    // The real figures from a live-verified route (docs/11).
+    expect(metersToKm(5346.9)).toBeCloseTo(5.3469, 4);
   });
 });
