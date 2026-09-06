@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { buildMatchPrompt } from '../src/lib/matchPrompt';
+import { buildMatchPrompt } from './_lib/matchPrompt';
 
 // Constructed once per cold start, not per request — GoogleGenAI itself
 // does no network call until generateContent runs.
