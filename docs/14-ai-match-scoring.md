@@ -40,13 +40,27 @@ Docs 11–13 all hold to a zero-cost constraint. This feature cannot: a meaningf
 resume match this posting" comparison requires actual language understanding, which means an LLM
 call, which is the one thing in this entire feature set that costs money to run.
 
-**What survives:** Gemini's free tier (Google's `gemini-2.0-flash` or newer) rather than a paid
-model. It genuinely costs nothing at this app's volume — a personal job search produces, at most, a
-few dozen match requests ever, nowhere near the free tier's rate limits. This is the sole exception
-to zero-cost in the entire post-roadmap set, and it is a free-tier exception, not a paid one.
-**"Or newer" is deliberate, not filler** — check Google's current free-tier model lineup at
-implementation time rather than assuming this exact name is still current; a specific model name in
-a doc is a snapshot, and this one may already be superseded by the time this gets built.
+**What survives:** Gemini's free tier rather than a paid model. It genuinely costs nothing at this
+app's volume — a personal job search produces, at most, a few dozen match requests ever, nowhere
+near the free tier's rate limits. This is the sole exception to zero-cost in the entire
+post-roadmap set, and it is a free-tier exception, not a paid one.
+
+**Verified live at implementation time (September 2026):** the originally-specified
+`gemini-2.0-flash` is no longer current — Google's Pro models moved behind billing in May 2026,
+leaving Flash-only free-tier access to `gemini-3-flash-preview` and `gemini-3.1-flash-lite`.
+**`gemini-3.1-flash-lite` is what this feature uses** — the lightest, cheapest-quota current model,
+which is all a percentage-plus-short-explanation classification task needs; `gemini-3-flash-preview`
+exists but is heavier and still in preview. Both the SDK and the model landscape had moved since
+this doc was first written, the same way Nominatim turned out to lack CORS support after doc 11
+specified it — check current model names again if this feature is ever revisited far in the future,
+rather than trusting this snapshot indefinitely.
+
+**SDK: `@google/genai` (npm, current major line as of this check), not `@google/generative-ai`.**
+The latter still exists on npm but is Google's own-stated legacy package — their migration guide
+points to `@google/genai` as "the unified standard library for all Gemini API interactions." Use
+its `ai.models.generateContent({ model, contents, config: { responseMimeType: 'application/json',
+responseSchema } })` shape, not the pseudocode `callGemini(...)` sketch below, which was always
+illustrative.
 
 ### A secret key changes the architecture, regardless of which LLM or which fetch approach was chosen
 
@@ -184,16 +198,33 @@ Response: { percentage: number, explanation: string }
 
 ```ts
 // api/match.ts — Vercel serverless function
+// Verified live at implementation time: @google/genai (not the legacy
+// @google/generative-ai), model gemini-3.1-flash-lite — see the correction
+// under "The match cannot be computed without a paid API call" above.
+import { GoogleGenAI, Type } from '@google/genai';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }); // server-only, no VITE_ prefix
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { resumeText, jobDescription } = req.body;
 
-  const result = await callGemini({
-    apiKey: process.env.GEMINI_API_KEY,   // server-only — no VITE_ prefix, never bundled
-    prompt: buildMatchPrompt(resumeText, jobDescription),
-    responseSchema: { percentage: 'number', explanation: 'string' },
+  const response = await ai.models.generateContent({
+    model: 'gemini-3.1-flash-lite',
+    contents: buildMatchPrompt(resumeText, jobDescription),
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          percentage: { type: Type.NUMBER },
+          explanation: { type: Type.STRING },
+        },
+        required: ['percentage', 'explanation'],
+      },
+    },
   });
 
-  res.json(result);
+  res.json(JSON.parse(response.text));
 }
 ```
 
@@ -258,19 +289,16 @@ and a prompt that doesn't ask for specifics tends to produce exactly that.
 ### Settings → Resume
 
 - Upload / replace, showing the current filename and upload date once one exists.
-- The privacy note, stated plainly and visible at the point of upload, not buried in a separate
-  policy page: **"Your resume's text is sent to Google's Gemini API to calculate match scores."**
+- **Verified live at implementation time (September 2026):** Gemini's free tier (unlike its paid
+  tiers) does use submitted content to improve Google's models, and human reviewers may read it —
+  confirmed against Google's own current API terms, not assumed. This is materially different from
+  every other privacy claim in this app (all "sent to X for Y purpose," never "may train a third
+  party's model"), so the notice has to say so, not soften it:
+  **"Your resume's text is sent to Google's Gemini API to calculate match scores. Google's free
+  tier may use this content to improve their AI models and may have it reviewed by a human."**
   This app has been deliberate about privacy everywhere else — Sentry strips salary figures and
   company names from error reports, sign-in errors are vague enough to avoid leaking whether an
-  account exists — and silently sending someone's resume to a third party would be the one
-  inconsistent thing in this codebase. Saying so plainly is the fix.
-- **Verify Gemini's current free-tier terms before finalizing this copy.** Google's free API tiers
-  have historically reserved the right to use submitted content to improve their models — a
-  materially different data-use story than a paid tier's usual guarantees, and different enough
-  from every other privacy claim in this app (which are all "sent to X for Y purpose," not "may
-  train a third party's model") that the notice above may need a second sentence once the exact,
-  current terms are confirmed. Do not assume either way without checking Google's own terms page at
-  implementation time — this is not something the doc author could verify in advance.
+  account exists — and a softer notice here would be the one inconsistent thing in this codebase.
 
 ### Application form
 
