@@ -23,6 +23,7 @@ export type ApplicationFormValues = {
   // ScheduleInterviewModal.
   interview_scheduled_at: string;
   target_experience_level: ExperienceLevel | '';
+  job_description: string;
 };
 
 // Local calendar date, not UTC — new Date().toISOString() would roll back a
@@ -49,4 +50,5 @@ export const toFormValues = (app?: Application): ApplicationFormValues => ({
   notes: app?.notes ?? '',
   interview_scheduled_at: toDatetimeLocalValue(app?.interview_scheduled_at ?? null),
   target_experience_level: app?.target_experience_level ?? '',
+  job_description: app?.job_description ?? '',
 });

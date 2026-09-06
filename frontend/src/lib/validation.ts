@@ -49,6 +49,11 @@ export const applicationSchema = z.object({
   // experience-filtering.md: a mandatory field here would contradict the
   // fast-add guarantee).
   target_experience_level: z.union([z.literal(''), z.enum(EXPERIENCE_LEVEL_VALUES)]),
+
+  // Pasted, not fetched — see docs/14-ai-match-scoring.md's "Fetching the
+  // job posting's own link doesn't work". Never required, same fast-add
+  // guarantee as every other optional field here.
+  job_description: z.string().max(20000),
 });
 
 // Mirrors saved_locations' own check constraints (docs/11's schema) so the

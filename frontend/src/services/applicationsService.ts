@@ -141,6 +141,7 @@ const OPTIONAL_FIELDS = [
   'notes',
   'work_setup',
   'target_experience_level',
+  'job_description',
 ] as const;
 
 // The return type is the strict Supabase-generated shape, not <T>: this is

@@ -42,11 +42,15 @@ export type Database = {
           id: string
           interview_scheduled_at: string | null
           is_archived: boolean
+          job_description: string | null
           job_link: string | null
           job_title: string
           location: string | null
           location_latitude: number | null
           location_longitude: number | null
+          match_calculated_at: string | null
+          match_explanation: string | null
+          match_percentage: number | null
           notes: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
           road_distance_from_lat: number | null
@@ -68,11 +72,15 @@ export type Database = {
           id?: string
           interview_scheduled_at?: string | null
           is_archived?: boolean
+          job_description?: string | null
           job_link?: string | null
           job_title: string
           location?: string | null
           location_latitude?: number | null
           location_longitude?: number | null
+          match_calculated_at?: string | null
+          match_explanation?: string | null
+          match_percentage?: number | null
           notes?: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
           road_distance_from_lat?: number | null
@@ -94,11 +102,15 @@ export type Database = {
           id?: string
           interview_scheduled_at?: string | null
           is_archived?: boolean
+          job_description?: string | null
           job_link?: string | null
           job_title?: string
           location?: string | null
           location_latitude?: number | null
           location_longitude?: number | null
+          match_calculated_at?: string | null
+          match_explanation?: string | null
+          match_percentage?: number | null
           notes?: string | null
           platform_source?: Database["public"]["Enums"]["platform_source"]
           road_distance_from_lat?: number | null
@@ -191,6 +203,10 @@ export type Database = {
           created_at: string
           graduation_date: string | null
           monthly_application_goal: number | null
+          resume_filename: string | null
+          resume_storage_path: string | null
+          resume_text: string | null
+          resume_uploaded_at: string | null
           updated_at: string
           user_id: string
         }
@@ -198,6 +214,10 @@ export type Database = {
           created_at?: string
           graduation_date?: string | null
           monthly_application_goal?: number | null
+          resume_filename?: string | null
+          resume_storage_path?: string | null
+          resume_text?: string | null
+          resume_uploaded_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -205,6 +225,10 @@ export type Database = {
           created_at?: string
           graduation_date?: string | null
           monthly_application_goal?: number | null
+          resume_filename?: string | null
+          resume_storage_path?: string | null
+          resume_text?: string | null
+          resume_uploaded_at?: string | null
           updated_at?: string
           user_id?: string
         }
