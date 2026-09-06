@@ -239,6 +239,16 @@ this app *is* `VITE_`-prefixed specifically because Vite inlines those into the 
 choice: it must stay server-only, readable only inside the Vercel function's own runtime, never
 reaching `import.meta.env` in the browser at all.
 
+**Verified against a real deployment, exactly the caution this document already gives below:**
+`buildMatchPrompt` must live under `api/_lib/`, not `src/lib/` alongside the rest of this app's pure
+functions. The first deployment imported it from `../src/lib/matchPrompt` and crashed on every
+invocation — `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/task/frontend/src/lib/
+matchPrompt'` — because Vercel's function bundler does not reliably trace and include a relative
+import that crosses outside the `api/` directory tree. `tsc`, `vitest`, and `vite build` all pass
+regardless, since none of them exercise Vercel's own function-packaging step; only a real deployed
+invocation surfaces this. The `_` prefix on `api/_lib/` keeps Vercel from treating the folder as a
+route.
+
 ### Why a Vercel function rather than a Supabase Edge Function
 
 The frontend already deploys to Vercel with git-based auto-deploy. A file under `api/` is
@@ -326,7 +336,8 @@ under 15 seconds") applies here exactly as it did to doc 13's target-audience fi
 
 | File | Responsibility |
 |---|---|
-| `api/match.ts` | The one serverless function. Calls Gemini, returns structured JSON. Nothing else lives here |
+| `api/match.ts` | The one serverless function. Calls Gemini, returns structured JSON |
+| `api/_lib/matchPrompt.ts` | `buildMatchPrompt` — kept inside `api/`, not `lib/`, so Vercel's function bundler always includes it (see the correction above) |
 | `lib/resumeExtraction.ts` | `extractResumeText(file)` — the two dynamic-import parsing paths |
 | `services/resumeService.ts` | Upload to Storage, update `user_preferences`, delete/replace |
 | `services/matchService.ts` | The one client call to `/api/match`; returns `{ percentage, explanation } \| null`, never throws |
@@ -399,6 +410,10 @@ good is a manual, occasional check, not a suite.
 - **Verify `/api/match` actually resolves in production, not just locally.** This is the first
   non-SPA route this project has ever had; `vercel.json`'s catch-all rewrite is expected not to
   shadow it, but "expected" is not the same as "confirmed against a real deployment."
+- **Everything `api/match.ts` imports must live inside `api/`, never a relative path out into
+  `src/`.** Confirmed the hard way: the first deployment crashed on every single invocation with
+  `ERR_MODULE_NOT_FOUND` for exactly that kind of import, undetectable by `tsc`/`vitest`/
+  `vite build` since none of them run Vercel's own function bundler.
 
 ---
 
