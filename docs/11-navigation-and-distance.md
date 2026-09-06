@@ -117,7 +117,26 @@ The sidebar adopts the *structure* of the reference layout, not its appearance. 
   [04](./04-design-system.md). No new colour system.
 - Active item: `bg-slate-100 text-slate-900 font-medium`. Inactive: `text-slate-600`, with
   `hover:bg-slate-50`. The active item is also marked `aria-current="page"`.
-- Width `w-56`, `border-r border-slate-200`, `bg-white`.
+- Width `224px` expanded, `64px` collapsed (see "Desktop collapse" below), `border-r
+  border-slate-200`, `bg-white`.
+
+### Desktop collapse
+
+*Added after the initial build, on user request ("must be properly collapsed with animation").*
+
+A toggle button (`‹`/`›`, the same plain-character convention as the rest of the sidebar) sits at
+the top of `Sidebar` and animates its width between `224px` and `64px` via `motion.aside`'s
+`animate={{ width }}`, using `useMotionDuration` so `prefers-reduced-motion` collapses the
+transition to instant rather than skipping the feature outright — the same pattern `SegmentedToggle`
+and `Modal` already use.
+
+Collapsed, nav items lose their text label (kept for assistive tech via `sr-only`) and show only the
+label's first letter, matching the account menu's own text-initials treatment rather than reaching
+for an icon font. The preference persists per-device in `localStorage` via `useSidebarCollapsed`,
+the same pattern as `useStaleThreshold` — not worth a database round-trip for one boolean.
+
+This only applies to the desktop `Sidebar`; the mobile `Drawer`'s `SidebarNav` is already full-width
+inside a bottom sheet, so `collapsed` there stays `false` and is never exposed to the user.
 
 ### Responsive behaviour
 
@@ -574,7 +593,8 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
 | `hooks/useDefaultLocation.ts` | The selected/default location for distance display |
 | `hooks/useDrivingEta.ts` | The on-demand routing query, drawer only, `enabled` on both coordinate pairs existing |
-| `components/layout/Sidebar.tsx` | Nav shell |
+| `hooks/useSidebarCollapsed.ts` | The desktop collapse preference, `localStorage`-backed like `useStaleThreshold` |
+| `components/layout/Sidebar.tsx` | Nav shell, including the desktop collapse toggle and its width animation |
 | `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
 | `components/application/DistanceBadge.tsx` | The card/row badge — straight-line only, no live call |
@@ -620,6 +640,9 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 - Both forms: submitting with a still-matching pick includes coordinates directly; submitting a
   free-typed (never picked, or edited-after-picked) address omits them, leaving the write-time
   fallback to handle it.
+- `Sidebar`: renders expanded with full labels by default; toggling collapses nav items to their
+  `sr-only`-labelled first letter and back; the collapsed preference survives a remount
+  (`useSidebarCollapsed`'s `localStorage` persistence).
 
 **Non-negotiable, in the sense [08](./08-testing-and-ci.md) uses the term:**
 
