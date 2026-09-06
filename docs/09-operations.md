@@ -134,8 +134,17 @@ for dev and prod; only the link differs, which is precisely why it deserves a de
 | `VITE_SUPABASE_URL` | `jat-prod` URL | `jat-dev` URL |
 | `VITE_SUPABASE_ANON_KEY` | `jat-prod` anon key | `jat-dev` anon key |
 | `VITE_SENTRY_DSN` | production DSN | *(unset — see below)* |
+| `GEMINI_API_KEY` ([14](./14-ai-match-scoring.md)) | the one Gemini key | same key |
 
 Preview deploys point at `jat-dev` so a PR can be clicked through with disposable data.
+
+**`GEMINI_API_KEY` is this app's first non-`VITE_`-prefixed variable, and the first not tied to a
+per-environment Supabase project.** Deliberately no `VITE_` prefix — that prefix is precisely
+Vite's signal to inline a variable into the client bundle, the one thing this key must never do
+([14](./14-ai-match-scoring.md)). Unlike the Supabase variables above, Production and Preview use
+the **same** value: Gemini's free tier has no dev/prod split the way Supabase does, and this app's
+realistic volume (doc 14: "at most, a few dozen match requests ever") never approaches a scale
+where sharing one key across environments matters.
 
 ### SPA routing
 
@@ -158,6 +167,12 @@ exist; the route is client-side.
 - [ ] Email confirmation **on** for `jat-prod`.
 - [ ] The security checklist at the end of [02](./02-backend-architecture.md) re-run against
       production.
+- [ ] **Once [14](./14-ai-match-scoring.md) exists:** `GEMINI_API_KEY` set in Vercel (Production
+      and Preview) *before* that deploy — a missing key fails every match request, not the build
+      itself, so this is easy to miss until someone actually clicks "Calculate Match."
+- [ ] **Once [14](./14-ai-match-scoring.md) exists:** confirm `/api/match` actually resolves against
+      the real deployment (doc 14's own caution — this is the first non-SPA route this project has
+      had, and `vercel.json`'s catch-all rewrite is expected, not confirmed, not to shadow it).
 
 **Order matters.** Frontend first means users hit a version of the app querying columns that do not
 exist yet. Migrations are additive here (new nullable columns, new tables), so

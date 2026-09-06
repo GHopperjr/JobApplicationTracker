@@ -7,6 +7,14 @@ This project runs no backend process of its own. Supabase exposes the PostgreSQL
 Security decides what each authenticated caller may see and do. The React app talks to that API
 directly through the official `supabase-js` client.
 
+**One narrow, stated exception: [14](./14-ai-match-scoring.md)'s one-function Vercel serverless
+endpoint (`api/match.ts`).** It exists solely to hold a secret (an LLM API key that can never reach
+the browser) and calls nothing in Supabase. Every rule on this page — RLS as the only
+authorization boundary, the service layer as the only thing that talks to Supabase, one shared
+client — still holds for everything else in the app. This is a one-function carve-out with a
+non-negotiable reason (see doc 14's *"A secret key changes the architecture"*), not a shift toward
+a general backend.
+
 This is a significant architectural difference from the reference project, which routes every
 request through a Lambda handler that authenticates, authorizes, and then calls a domain layer.
 **What carries over is the discipline, not the topology:**
