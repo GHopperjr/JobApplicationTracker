@@ -110,9 +110,14 @@ the one that already exists and already works.
 
 The sidebar adopts the *structure* of the reference layout, not its appearance. Concretely:
 
-- **No icon font.** The reference used Material Symbols. This app has no icon font and should not
-  gain one for five nav links — it renders text labels, consistent with every other surface, which
-  use plain characters (`⋮`, `⠿`, `✕`) where a glyph is needed at all.
+- **No icon font.** The reference used Material Symbols. This app has no icon font and doesn't gain
+  one for three nav links. **Corrected after implementation:** each item does carry a small
+  hand-drawn line icon (`components/layout/NavIcons.tsx`) so the collapsed sidebar (see "Desktop
+  collapse" below) has something to show once the label hides — added on user request, since a
+  bare letter avatar read poorly there. These are inline SVGs matching `LoginPage`'s existing
+  `LogoMark` exactly (`stroke="currentColor"`, `strokeWidth={2}`, a 24×24 viewBox), not a font-based
+  icon library — the "no icon font" rule is about the dependency, not about using zero glyphs at
+  all, and every other surface still reaches for a plain character (`⋮`, `⠿`, `✕`) first.
 - **Existing tokens only.** Neutral slate palette, Inter, the spacing scale from
   [04](./04-design-system.md). No new colour system.
 - Active item: `bg-slate-100 text-slate-900 font-medium`. Inactive: `text-slate-600`, with
@@ -130,10 +135,10 @@ the top of `Sidebar` and animates its width between `224px` and `64px` via `moti
 transition to instant rather than skipping the feature outright — the same pattern `SegmentedToggle`
 and `Modal` already use.
 
-Collapsed, nav items lose their text label (kept for assistive tech via `sr-only`) and show only the
-label's first letter, matching the account menu's own text-initials treatment rather than reaching
-for an icon font. The preference persists per-device in `localStorage` via `useSidebarCollapsed`,
-the same pattern as `useStaleThreshold` — not worth a database round-trip for one boolean.
+Collapsed, nav items lose their text label (kept for assistive tech via `sr-only`) and show only
+their icon — see the "No icon font" correction above. The preference persists per-device in
+`localStorage` via `useSidebarCollapsed`, the same pattern as `useStaleThreshold` — not worth a
+database round-trip for one boolean.
 
 This only applies to the desktop `Sidebar`; the mobile `Drawer`'s `SidebarNav` is already full-width
 inside a bottom sheet, so `collapsed` there stays `false` and is never exposed to the user.
@@ -627,6 +632,7 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 | `hooks/useEnsureRoadDistance.ts` | Warms the badge's road-distance cache in the background, once per staleness, never at render time |
 | `hooks/useSidebarCollapsed.ts` | The desktop collapse preference, `localStorage`-backed like `useStaleThreshold` |
 | `components/layout/Sidebar.tsx` | Nav shell, including the desktop collapse toggle and its width animation |
+| `components/layout/NavIcons.tsx` | One hand-drawn line icon per nav item, keyed by route in `Sidebar.tsx` — not folded into `constants/navigation.ts`, which stays plain data with no React dependency |
 | `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
 | `components/application/DistanceBadge.tsx` | The card/row badge — reads the road-distance cache, calls `useEnsureRoadDistance` to keep it warm, never calls OSRM itself |

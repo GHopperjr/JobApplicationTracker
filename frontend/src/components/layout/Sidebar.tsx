@@ -1,9 +1,12 @@
 import { motion } from 'motion/react';
+import type { ComponentType } from 'react';
 import { NavLink } from 'react-router-dom';
 import { NAV_ITEMS } from '../../constants/navigation';
+import { ROUTES } from '../../constants/routes';
 import { useMotionDuration } from '../../hooks/useMotionDuration';
 import { useSidebarCollapsed } from '../../hooks/useSidebarCollapsed';
 import { cn } from '../../lib/cn';
+import { ApplicationsIcon, MetricsIcon, SettingsIcon } from './NavIcons';
 
 function navLinkClass({ isActive }: { isActive: boolean }): string {
   return cn(
@@ -14,10 +17,21 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
   );
 }
 
+// Keyed by route rather than folded into NAV_ITEMS itself — that array is
+// plain data (constants/navigation.ts has no React dependency), and an
+// icon is a render concern that belongs at this layer instead.
+const NAV_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  [ROUTES.applications]: ApplicationsIcon,
+  [ROUTES.settings]: SettingsIcon,
+  [ROUTES.metrics]: MetricsIcon,
+};
+
 /**
  * The nav list itself, shared by the desktop sidebar and the mobile sheet.
  * `collapsed` only ever comes from the desktop `Sidebar` — the mobile sheet
- * is already full-width, so collapsing it would serve no purpose.
+ * is already full-width, so collapsing it would serve no purpose. The icon
+ * shows in both states; collapsed, it's the only thing left once the label
+ * hides.
  */
 export function SidebarNav({
   onNavigate,
@@ -28,24 +42,25 @@ export function SidebarNav({
 }) {
   return (
     <nav aria-label="Sections" className="flex flex-col gap-1">
-      {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          onClick={onNavigate}
-          className={navLinkClass}
-          title={collapsed ? item.label : undefined}
-        >
-          {collapsed ? (
-            <span aria-hidden="true" className="flex h-5 w-5 shrink-0 items-center justify-center text-sm font-semibold">
-              {item.label[0]}
-            </span>
-          ) : (
-            <span className="truncate">{item.label}</span>
-          )}
-          {collapsed && <span className="sr-only">{item.label}</span>}
-        </NavLink>
-      ))}
+      {NAV_ITEMS.map((item) => {
+        const Icon = NAV_ICONS[item.to];
+        return (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            onClick={onNavigate}
+            className={navLinkClass}
+            title={collapsed ? item.label : undefined}
+          >
+            <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+            {collapsed ? (
+              <span className="sr-only">{item.label}</span>
+            ) : (
+              <span className="truncate">{item.label}</span>
+            )}
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }
