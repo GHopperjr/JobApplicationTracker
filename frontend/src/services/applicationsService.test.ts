@@ -10,6 +10,7 @@ function makeChain(result: { data: unknown; error: unknown }) {
     insert: vi.fn((..._args: unknown[]) => chain),
     update: vi.fn((..._args: unknown[]) => chain),
     in: vi.fn((..._args: unknown[]) => chain),
+    eq: vi.fn((..._args: unknown[]) => chain),
     ilike: vi.fn((..._args: unknown[]) => chain),
     neq: vi.fn((..._args: unknown[]) => chain),
     single: vi.fn(() => Promise.resolve(result)),
@@ -26,9 +27,14 @@ vi.mock('./supabaseClient', () => ({
 }));
 
 // Imported after the mock so applicationsService picks up the mocked client.
-const { createApplication, bulkCreate, bulkSetArchived, findPotentialDuplicates } = await import(
-  './applicationsService'
-);
+const {
+  createApplication,
+  bulkCreate,
+  bulkSetArchived,
+  findPotentialDuplicates,
+  updateApplicationStatus,
+  bulkUpdateStatus,
+} = await import('./applicationsService');
 type ApplicationInsert = import('./applicationsService').ApplicationInsert;
 
 describe('createApplication', () => {
@@ -59,6 +65,57 @@ describe('createApplication', () => {
         notes: null,
       })
     );
+  });
+});
+
+describe('updateApplicationStatus', () => {
+  it('omits interview_scheduled_at from the patch when not supplied', async () => {
+    const chain = makeChain({ data: { id: '1', status: 'interviewed' }, error: null });
+    from.mockReturnValue(chain);
+
+    await updateApplicationStatus('1', 'interviewed');
+
+    expect(chain.update).toHaveBeenCalledWith({ status: 'interviewed' });
+  });
+
+  it('includes interview_scheduled_at when supplied, even as null', async () => {
+    const chain = makeChain({ data: { id: '1' }, error: null });
+    from.mockReturnValue(chain);
+
+    await updateApplicationStatus('1', 'scheduled_for_interview', '2026-09-10T06:30:00.000Z');
+    expect(chain.update).toHaveBeenCalledWith({
+      status: 'scheduled_for_interview',
+      interview_scheduled_at: '2026-09-10T06:30:00.000Z',
+    });
+
+    await updateApplicationStatus('1', 'scheduled_for_interview', null);
+    expect(chain.update).toHaveBeenCalledWith({
+      status: 'scheduled_for_interview',
+      interview_scheduled_at: null,
+    });
+  });
+});
+
+describe('bulkUpdateStatus', () => {
+  it('omits interview_scheduled_at from the patch when not supplied', async () => {
+    const chain = makeChain({ data: [{ id: '1' }, { id: '2' }], error: null });
+    from.mockReturnValue(chain);
+
+    await bulkUpdateStatus(['1', '2'], 'rejected');
+
+    expect(chain.update).toHaveBeenCalledWith({ status: 'rejected' });
+  });
+
+  it('includes interview_scheduled_at when supplied', async () => {
+    const chain = makeChain({ data: [{ id: '1' }, { id: '2' }], error: null });
+    from.mockReturnValue(chain);
+
+    await bulkUpdateStatus(['1', '2'], 'scheduled_for_interview', '2026-09-10T06:30:00.000Z');
+
+    expect(chain.update).toHaveBeenCalledWith({
+      status: 'scheduled_for_interview',
+      interview_scheduled_at: '2026-09-10T06:30:00.000Z',
+    });
   });
 });
 

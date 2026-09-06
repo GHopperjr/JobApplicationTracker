@@ -40,6 +40,7 @@ export type Database = {
           company_name: string
           created_at: string
           id: string
+          interview_scheduled_at: string | null
           is_archived: boolean
           job_link: string | null
           job_title: string
@@ -64,6 +65,7 @@ export type Database = {
           company_name: string
           created_at?: string
           id?: string
+          interview_scheduled_at?: string | null
           is_archived?: boolean
           job_link?: string | null
           job_title: string
@@ -88,6 +90,7 @@ export type Database = {
           company_name?: string
           created_at?: string
           id?: string
+          interview_scheduled_at?: string | null
           is_archived?: boolean
           job_link?: string | null
           job_title?: string

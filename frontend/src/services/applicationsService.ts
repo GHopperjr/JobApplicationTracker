@@ -268,14 +268,21 @@ export async function updateApplication(
 
 export async function updateApplicationStatus(
   id: string,
-  status: Application['status']
+  status: Application['status'],
+  // `undefined` (the default) means "don't touch this column" — distinct
+  // from `null`, which explicitly clears a previously-recorded date. Lets
+  // the status-change guard's "skip the interview prompt" path leave an
+  // existing date alone rather than always overwriting it (docs/05).
+  interviewScheduledAt?: string | null
 ): Promise<Application> {
   // Dedicated function rather than a generic update: this is the single most
   // frequent write in the app (every Kanban drag / table status change), it
   // is the one write with a database-side side effect (the status_history
   // trigger), and giving it its own name makes the optimistic-update path in
   // useApplicationMutations explicit.
-  return updateApplication(id, { status });
+  const patch: ApplicationUpdate = { status };
+  if (interviewScheduledAt !== undefined) patch.interview_scheduled_at = interviewScheduledAt;
+  return updateApplication(id, patch);
 }
 
 export async function deleteApplication(id: string): Promise<void> {
@@ -291,11 +298,15 @@ export async function deleteApplication(id: string): Promise<void> {
  */
 export async function bulkUpdateStatus(
   ids: string[],
-  status: Application['status']
+  status: Application['status'],
+  interviewScheduledAt?: string | null
 ): Promise<Application[]> {
+  const patch: Database['public']['Tables']['applications']['Update'] = { status };
+  if (interviewScheduledAt !== undefined) patch.interview_scheduled_at = interviewScheduledAt;
+
   const { data, error } = await supabase
     .from('applications')
-    .update({ status })
+    .update(patch)
     .in('id', ids)
     .select();
 

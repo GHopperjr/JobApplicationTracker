@@ -2,7 +2,7 @@ import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/ui/Drawer';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import { WORK_SETUP_LABELS } from '../../constants/workSetup';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatDateTime } from '../../lib/format';
 import type { Application } from '../../services/applicationsService';
 import { DistanceRow } from './DistanceRow';
 import { StatusBadge } from './StatusBadge';
@@ -66,6 +66,9 @@ export function ApplicationDetailDrawer({
               <DistanceRow application={application} />
               {application.work_setup && (
                 <DetailRow label="Work setup">{WORK_SETUP_LABELS[application.work_setup]}</DetailRow>
+              )}
+              {application.interview_scheduled_at && (
+                <DetailRow label="Interview">{formatDateTime(application.interview_scheduled_at)}</DetailRow>
               )}
               {application.salary_range && <DetailRow label="Salary">{application.salary_range}</DetailRow>}
               {application.applied_date && (

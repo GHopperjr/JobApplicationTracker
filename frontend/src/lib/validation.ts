@@ -38,6 +38,11 @@ export const applicationSchema = z.object({
   work_setup: z.union([z.literal(''), z.enum(WORK_SETUP_VALUES)]),
   applied_date: z.union([z.literal(''), z.iso.date()]),
   notes: z.string().max(5000),
+
+  // datetime-local's own value ("2026-09-10T14:30"), not a full ISO string —
+  // converted to one at the service boundary. No stricter format check: the
+  // native input already constrains what a user can type into it.
+  interview_scheduled_at: z.string(),
 });
 
 const wholeNumber = z.string().regex(/^\d*$/, 'Must be a whole number');

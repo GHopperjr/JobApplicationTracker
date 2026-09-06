@@ -209,6 +209,12 @@ Pending to Accepted. Under strict counting that produces a funnel where "accepte
 implying the stage before it costs a small fiction in a rare case and buys a funnel that always
 reads correctly.
 
+**Corrected after implementation:** [05](./05-features-and-workflows.md)'s F11 added a confirmation
+step in front of a forward skip like Pending → Accepted — the app no longer permits one *silently*.
+That doesn't change anything here: the skip still happens once confirmed, still produces exactly the
+same `status_history` rows, and this funnel still needs to stay monotonic against it. F11 makes a
+skip a deliberate choice; it was never this funnel's job to prevent one.
+
 **`rejected` is not a funnel stage.** It is an outcome, not a depth — an application can be rejected
 from any point, and putting it in the sequence would imply everything passes through it.
 
