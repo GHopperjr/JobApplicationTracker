@@ -1,3 +1,4 @@
+import type { Coordinates } from '../lib/distance';
 import { geocodeAddress } from './geocodingService';
 import { toAppError } from './errors';
 import { supabase } from './supabaseClient';
@@ -15,24 +16,34 @@ export async function listSavedLocations(): Promise<SavedLocation[]> {
 }
 
 /**
- * Inserted first, geocoded after, and the geocode IS awaited here (unlike
- * applications' create/update) — saved locations are a rare, deliberate
- * settings action ("a handful of times, ever" per docs/11), not the hot
- * path, so waiting for one Nominatim round trip before showing the result
- * is simpler than plumbing a background-refresh path for something this
- * infrequent. A failed geocode still returns the saved row, just without
- * coordinates — it is never an error.
+ * `coordinates`, when given, comes from the address-autocomplete picker
+ * having already resolved the exact row being saved — written directly in
+ * this same insert, no separate geocode needed. Without it (a free-typed
+ * address that was never picked from a suggestion), this falls back to
+ * geocoding after the insert, awaited here (unlike applications'
+ * create/update) — saved locations are a rare, deliberate settings action
+ * ("a handful of times, ever" per docs/11), not the hot path, so waiting
+ * for one round trip is simpler than plumbing a background-refresh path for
+ * something this infrequent. A failed geocode still returns the saved row,
+ * just without coordinates — it is never an error.
  */
 export async function createSavedLocation(input: {
   label: string;
   address: string;
+  coordinates?: Coordinates;
 }): Promise<SavedLocation> {
   const { data, error } = await supabase
     .from('saved_locations')
-    .insert({ label: input.label.trim(), address: input.address.trim() })
+    .insert({
+      label: input.label.trim(),
+      address: input.address.trim(),
+      latitude: input.coordinates?.latitude,
+      longitude: input.coordinates?.longitude,
+    })
     .select()
     .single();
   if (error) throw toAppError(error);
+  if (input.coordinates) return data;
 
   const coords = await geocodeAddress(data.address);
   if (!coords) return data;
@@ -48,11 +59,15 @@ export async function createSavedLocation(input: {
 
 export async function updateSavedLocation(
   id: string,
-  patch: { label?: string; address?: string }
+  patch: { label?: string; address?: string; coordinates?: Coordinates }
 ): Promise<SavedLocation> {
-  const normalized: { label?: string; address?: string } = {};
+  const normalized: { label?: string; address?: string; latitude?: number; longitude?: number } = {};
   if (patch.label !== undefined) normalized.label = patch.label.trim();
   if (patch.address !== undefined) normalized.address = patch.address.trim();
+  if (patch.coordinates) {
+    normalized.latitude = patch.coordinates.latitude;
+    normalized.longitude = patch.coordinates.longitude;
+  }
 
   const { data, error } = await supabase
     .from('saved_locations')
@@ -62,9 +77,11 @@ export async function updateSavedLocation(
     .single();
   if (error) throw toAppError(error);
 
-  // Only the address actually changing re-geocodes — editing just the label
-  // shouldn't cost a network call (docs/11's write-time trigger table).
-  if (normalized.address === undefined) return data;
+  // Only the address actually changing re-geocodes, and only when the
+  // caller didn't already supply resolved coordinates alongside it (editing
+  // just the label shouldn't cost a network call at all — docs/11's
+  // write-time trigger table).
+  if (normalized.address === undefined || patch.coordinates) return data;
 
   const coords = await geocodeAddress(normalized.address);
   const { data: geocoded, error: patchError } = await supabase

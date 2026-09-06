@@ -167,7 +167,13 @@ export async function createApplication(input: ApplicationInsert): Promise<Appli
     .single();
 
   if (error) throw toAppError(error);
-  if (data.location) void geocodeAndPatchLocation(data.id, data.location);
+
+  // Only geocode in the background when the caller didn't already supply
+  // resolved coordinates (e.g. from the address-autocomplete picker) — those
+  // are already part of the row just inserted, and re-geocoding would waste
+  // a request and risks a slightly different match overwriting a confirmed one.
+  const hasCoords = input.location_latitude != null && input.location_longitude != null;
+  if (data.location && !hasCoords) void geocodeAndPatchLocation(data.id, data.location);
   return data;
 }
 
@@ -185,8 +191,11 @@ export async function updateApplication(
   if (error) throw toAppError(error);
 
   // Only re-geocode when `location` was actually part of this patch — an
-  // edit to notes/salary/etc. shouldn't cost a network call.
-  if ('location' in patch) {
+  // edit to notes/salary/etc. shouldn't cost a network call — and only when
+  // the caller didn't already supply resolved coordinates alongside it (see
+  // createApplication's comment above; same reasoning applies here).
+  const hasCoords = patch.location_latitude != null && patch.location_longitude != null;
+  if ('location' in patch && !hasCoords) {
     if (patch.location && patch.location.trim()) {
       void geocodeAndPatchLocation(id, patch.location);
     } else {

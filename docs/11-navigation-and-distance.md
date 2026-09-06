@@ -328,6 +328,43 @@ The first two produce null coordinates and no distance UI. The third resolves an
 that is only as precise as what the user typed — which is acceptable, because the user typed it and
 can see what they typed.
 
+### Search-as-you-type
+
+**Added after the original spec, in response to a real precision problem it caused.** A single
+free-typed field cannot tell the user *how* to phrase an address, and a bad phrasing failed
+silently: a real address (`"5th Floor, PNB Building, 6754 Ayala Ave, Legazpi Village, Makati City,
+1229 Metro Manila"`) returned zero results, while the same place phrased naturally
+(`"PNB Building Ayala Avenue Makati"`) resolved precisely. The data was never the problem — the
+query shape was.
+
+Both the saved-location address field and an application's location field are backed by
+`components/ui/AddressAutocomplete`: typing debounces (300ms) into a live Photon query
+(`searchPlaces`, `limit=5`), shown as a dropdown under the field. Picking a result fills the field
+with a clean formatted address and hands the caller the resolved coordinates *and* the place's own
+name when Photon's data has one (`"PNB"`, not just an address) — this is also how a company/building
+name can be captured directly: searching `"PNB Makati"` by name alone returns real, precisely
+located branches, no separate "search by name" feature needed.
+
+**Nothing is forced.** The field stays a plain free-text input underneath — a user can type an
+address and never open the dropdown, or edit after picking a suggestion, and the value still
+submits. Any edit after a pick clears the resolved coordinates (tracked as component state, not
+persisted), falling back to the existing write-time `geocodeAddress` for whatever text is finally
+submitted. This is why the two paths never conflict: a pick is a fast-path precision improvement,
+never the only way coordinates get set.
+
+**Why not a map picker instead.** Considered and deliberately not built: technically zero-cost
+(Leaflet + OSM's own raster tiles, no key), but it's a new ~40KB dependency and the first map surface
+in an otherwise map-free app, for a problem that turned out to be about query phrasing, not
+precision — live suggestions already show a user when their phrasing is too specific and let them
+correct it, without a map. The "no map tiles anywhere" boundary from Scope, above, still holds.
+
+**Saved locations vs. applications differ in one way:** a saved location's `label` is the user's own
+nickname for the place, so picking a suggestion offers its name as the label *only when the label
+field is still empty* — never overwriting something the user already typed. An application's
+`location` field has no equivalent "name" slot to offer into; `company_name` is a separate,
+independently-typed field and is never auto-filled from a location pick, since the entity at an
+address (a building's ground-floor bank, say) is very often not the employer renting space inside it.
+
 ---
 
 ## Distance and ETA
@@ -481,14 +518,15 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 
 | File | Responsibility |
 |---|---|
-| `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion |
-| `services/geocodingService.ts` | The single Photon call. Returns `Coordinates \| null` — never throws |
+| `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion; accepts pre-resolved coordinates from the picker to skip a redundant geocode |
+| `services/geocodingService.ts` | `searchPlaces` (multi-result, backs the picker) and `geocodeAddress` (single-result write-time fallback, built on top of it). Neither throws |
 | `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns seconds \| null |
 | `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`. Pure functions, no I/O |
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
 | `hooks/useDefaultLocation.ts` | The selected/default location for distance display |
 | `hooks/useDrivingEta.ts` | The on-demand routing query, drawer only, `enabled` on both coordinate pairs existing |
 | `components/layout/Sidebar.tsx` | Nav shell |
+| `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
 | `components/application/DistanceBadge.tsx` | The shared km badge used by card, row, and mobile row |
 
@@ -522,6 +560,13 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 - The badge renders nothing when either coordinate is missing.
 - The drawer omits the ETA clause when routing returns `null` but still shows kilometres.
 - The saved-location form surfaces validation errors and blocks submit, like every other form.
+- `AddressAutocomplete`: no search below the minimum query length; no search fires merely from a
+  pre-filled value on mount; picking a suggestion fills the field and reports its coordinates;
+  editing after a pick clears the resolved coordinates; the picked value doesn't trigger a second,
+  redundant search; arrow keys + Enter select the highlighted suggestion.
+- Both forms: submitting with a still-matching pick includes coordinates directly; submitting a
+  free-typed (never picked, or edited-after-picked) address omits them, leaving the write-time
+  fallback to handle it.
 
 **Non-negotiable, in the sense [08](./08-testing-and-ci.md) uses the term:**
 

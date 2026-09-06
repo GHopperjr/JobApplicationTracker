@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Coordinates } from '../lib/distance';
 import {
   createSavedLocation,
   deleteSavedLocation,
@@ -7,6 +8,8 @@ import {
   updateSavedLocation,
 } from '../services/savedLocationsService';
 import { queryKeys } from './queryKeys';
+
+type SavedLocationPatch = { label?: string; address?: string; coordinates?: Coordinates };
 
 export function useSavedLocations() {
   const queryClient = useQueryClient();
@@ -20,7 +23,7 @@ export function useSavedLocations() {
   const create = useMutation({ mutationFn: createSavedLocation, onSuccess: invalidate });
 
   const update = useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: { label?: string; address?: string } }) =>
+    mutationFn: ({ id, patch }: { id: string; patch: SavedLocationPatch }) =>
       updateSavedLocation(id, patch),
     onSuccess: invalidate,
   });
