@@ -44,6 +44,9 @@ call, which is the one thing in this entire feature set that costs money to run.
 model. It genuinely costs nothing at this app's volume — a personal job search produces, at most, a
 few dozen match requests ever, nowhere near the free tier's rate limits. This is the sole exception
 to zero-cost in the entire post-roadmap set, and it is a free-tier exception, not a paid one.
+**"Or newer" is deliberate, not filler** — check Google's current free-tier model lineup at
+implementation time rather than assuming this exact name is still current; a specific model name in
+a doc is a snapshot, and this one may already be superseded by the time this gets built.
 
 ### A secret key changes the architecture, regardless of which LLM or which fetch approach was chosen
 
@@ -159,6 +162,16 @@ sessions never touch. Dynamic import keeps it out of the bundle every other page
 Extraction happens once, at upload, and the result is what's stored. Nothing re-parses the file
 later — every subsequent read is the `resume_text` column.
 
+**`pdf.js` also needs its worker wired up — the snippet above is illustrative, not complete.**
+Unlike `mammoth` (a plain library call), `pdf.js` runs its actual parsing on a Web Worker and needs
+that worker's script URL told to it explicitly (`GlobalWorkerOptions.workerSrc`) — it doesn't locate
+one on its own, and the exact wiring depends on the installed `pdfjs-dist` version and how Vite
+resolves worker assets (commonly a `?url`-suffixed import of the matching `pdf.worker.min.mjs`).
+Confirm the current version's expected setup against its own docs at implementation time rather than
+assuming the snippet above is copy-paste-ready — this is exactly the kind of detail a spec written
+in the abstract can't fully resolve, the same way Nominatim's missing CORS support and Photon's
+fuzzy-matching behavior only surfaced once doc 11 was actually being built.
+
 ---
 
 ## The one server-side function
@@ -251,6 +264,13 @@ and a prompt that doesn't ask for specifics tends to produce exactly that.
   company names from error reports, sign-in errors are vague enough to avoid leaking whether an
   account exists — and silently sending someone's resume to a third party would be the one
   inconsistent thing in this codebase. Saying so plainly is the fix.
+- **Verify Gemini's current free-tier terms before finalizing this copy.** Google's free API tiers
+  have historically reserved the right to use submitted content to improve their models — a
+  materially different data-use story than a paid tier's usual guarantees, and different enough
+  from every other privacy claim in this app (which are all "sent to X for Y purpose," not "may
+  train a third party's model") that the notice above may need a second sentence once the exact,
+  current terms are confirmed. Do not assume either way without checking Google's own terms page at
+  implementation time — this is not something the doc author could verify in advance.
 
 ### Application form
 
