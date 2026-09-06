@@ -34,7 +34,7 @@ screen holds is **saved locations**, which is what the **distance calculator** m
 | # | Feature | Status |
 |---|---|---|
 | 11 | Navigation shell + distance calculator | This document |
-| 12 | Interview metrics | Not yet designed |
+| 12 | Interview metrics | Built — see [12](./12-interview-metrics.md) |
 | 13 | Profile: fresh-grad / experience categorisation and filtering | Not yet designed, exploratory |
 | 14 | AI resume ↔ job posting match scoring | Not yet designed, speculative |
 
@@ -89,7 +89,7 @@ more than one screen.
 | **Job Applications** | `/applications` | Now — the existing page, unchanged |
 | **Settings** | `/settings` | With this feature |
 | Archive | `/archive` | When Phase 7 lands |
-| Interview Metrics | `/metrics` | When doc 12 is built |
+| Interview Metrics | `/metrics` | Built — see [12](./12-interview-metrics.md) |
 
 **The label is "Job Applications", not "Applications"** — deliberately. "Applications" is ambiguous
 in a product that also runs on mobile and the web, where it reads as "apps." The extra word removes

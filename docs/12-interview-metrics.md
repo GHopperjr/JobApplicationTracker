@@ -64,6 +64,13 @@ One idea holds the whole page together.
 **A period selector defines a cohort — applications whose `created_at` falls in the selected range —
 and every section computes over that same cohort.**
 
+**The cohort includes archived applications.** Archiving hides an application from the active
+board and table (docs/06's Phase 7), it does not erase that it happened — an application archived
+after being rejected still counts toward "Applied" and, if it was interviewed first, still reached
+that stage. The funnel is a historical accounting of a job search, the same "history is the whole
+truth" philosophy `status_history` already applies; a metrics page that quietly excluded archived
+rows would undercount both without any visible sign that it had.
+
 | Period | Cohort |
 |---|---|
 | This Month | Applications created in the current calendar month |
@@ -201,6 +208,12 @@ Pending to Accepted. Under strict counting that produces a funnel where "accepte
 "interviewed" — visually broken and, worse, apparently a bug. Treating a reached `accepted` as
 implying the stage before it costs a small fiction in a rare case and buys a funnel that always
 reads correctly.
+
+**Corrected after implementation:** [05](./05-features-and-workflows.md)'s F11 added a confirmation
+step in front of a forward skip like Pending → Accepted — the app no longer permits one *silently*.
+That doesn't change anything here: the skip still happens once confirmed, still produces exactly the
+same `status_history` rows, and this funnel still needs to stay monotonic against it. F11 makes a
+skip a deliberate choice; it was never this funnel's job to prevent one.
 
 **`rejected` is not a funnel stage.** It is an outcome, not a depth — an application can be rejected
 from any point, and putting it in the sequence would imply everything passes through it.

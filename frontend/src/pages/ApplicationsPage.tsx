@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ApplicationDetailDrawer } from '../components/application/ApplicationDetailDrawer';
 import { ApplicationFormModal } from '../components/application/ApplicationFormModal';
+import { ScheduleInterviewModal } from '../components/application/ScheduleInterviewModal';
 import { FilterBar } from '../components/filters/FilterBar';
 import { ImportModal } from '../components/import/ImportModal';
 import { KanbanBoard } from '../components/kanban/KanbanBoard';
@@ -9,7 +10,7 @@ import { ApplicationsTable } from '../components/table/ApplicationsTable';
 import { TableToolbar } from '../components/table/TableToolbar';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { ROUTES } from '../constants/routes';
-import { STATUS_ORDER, type ApplicationStatus } from '../constants/status';
+import { STATUS_LABELS, STATUS_ORDER, type ApplicationStatus } from '../constants/status';
 import { isStale } from '../constants/staleness';
 import { useApplicationFilters } from '../hooks/useApplicationFilters';
 import { useApplicationForm } from '../hooks/useApplicationForm';
@@ -17,6 +18,7 @@ import { useApplicationMutations } from '../hooks/useApplicationMutations';
 import { useApplications } from '../hooks/useApplications';
 import { useRealtimeApplications } from '../hooks/useRealtimeApplications';
 import { useStaleThreshold } from '../hooks/useStaleThreshold';
+import { useStatusChangeGuard } from '../hooks/useStatusChangeGuard';
 import { useToast } from '../hooks/useToast';
 import { downloadCsv, exportFilename } from '../lib/csv';
 import { DEFAULT_SORT, listApplications, type Application } from '../services/applicationsService';
@@ -119,18 +121,44 @@ export function ApplicationsPage() {
     [navigate, location.search]
   );
   const confirmDelete = useCallback((application: Application) => setPendingDelete(application), []);
-  // `mutations.changeStatus` (the object) is a fresh reference every render
-  // — useMutation() returns `{...result, mutate}` via spread — but `.mutate`
-  // itself is wrapped in its own internal useCallback keyed on a stable
-  // observer, so it genuinely doesn't change (verified directly against
-  // @tanstack/react-query's source, not assumed). Depending on the whole
-  // object, as exhaustive-deps suggests, would recreate this callback every
-  // render and defeat the memoization ApplicationCard relies on it for.
-  const onStatusChange = useCallback(
-    (appId: string, status: ApplicationStatus) => mutations.changeStatus.mutate({ id: appId, status }),
+  // `mutations.changeStatus`/`mutations.bulkStatus` (the objects) are fresh
+  // references every render — useMutation() returns `{...result, mutate}`
+  // via spread — but `.mutate` itself is wrapped in its own internal
+  // useCallback keyed on a stable observer, so it genuinely doesn't change
+  // (verified directly against @tanstack/react-query's source, not
+  // assumed). Depending on the whole object, as exhaustive-deps suggests,
+  // would recreate these callbacks every render and defeat the memoization
+  // ApplicationCard relies on them for.
+  const rawChangeStatus = useCallback(
+    (appId: string, status: ApplicationStatus, interviewScheduledAt?: string | null) =>
+      mutations.changeStatus.mutate({ id: appId, status, interviewScheduledAt }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [mutations.changeStatus.mutate]
   );
+  // Selection is cleared here, not in handleBulkStatusChange below — the
+  // guard may hold the change behind a modal first, and clearing the
+  // selection before the user has actually decided anything would lose it
+  // if they cancel.
+  const rawBulkChangeStatus = useCallback(
+    (ids: string[], status: ApplicationStatus, interviewScheduledAt?: string | null) => {
+      mutations.bulkStatus.mutate({ ids, status, interviewScheduledAt });
+      setSelectedIds([]);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mutations.bulkStatus.mutate]
+  );
+
+  // The single interception point for every status-change path in the app
+  // (docs/05): holds a forward stage-skip behind a confirmation, and a move
+  // into Scheduled for Interview behind an optional date/time prompt,
+  // before either mutation above ever fires.
+  const guard = useStatusChangeGuard({
+    applications,
+    onChangeStatus: rawChangeStatus,
+    onBulkChangeStatus: rawBulkChangeStatus,
+  });
+  const onStatusChange = guard.requestStatusChange;
+
   const onArchive = useCallback(
     (application: Application) =>
       mutations.setArchived.mutate({ ids: [application.id], isArchived: !application.is_archived }),
@@ -158,8 +186,7 @@ export function ApplicationsPage() {
   const clearSelection = useCallback(() => setSelectedIds([]), []);
 
   const handleBulkStatusChange = (status: ApplicationStatus) => {
-    mutations.bulkStatus.mutate({ ids: selectedIds, status });
-    setSelectedIds([]);
+    guard.requestBulkStatusChange(selectedIds, status);
   };
   const handleBulkArchive = () => {
     // Direction follows the view, not each row's own state: every selected
@@ -282,6 +309,34 @@ export function ApplicationsPage() {
         onConfirm={handleConfirmBulkDelete}
         onCancel={() => setBulkDeleteOpen(false)}
       />
+
+      <ConfirmDialog
+        isOpen={Boolean(guard.skipConfirm)}
+        title="Skip a stage?"
+        message={guard.skipConfirm ? formatSkipConfirmMessage(guard.skipConfirm) : ''}
+        confirmLabel="Continue"
+        onConfirm={guard.confirmSkip}
+        onCancel={guard.cancelSkip}
+      />
+
+      <ScheduleInterviewModal
+        isOpen={guard.scheduleModalOpen}
+        initialValue={guard.scheduleInitialValue}
+        onSave={guard.saveSchedule}
+        onSkip={guard.skipSchedule}
+        onClose={guard.closeSchedule}
+      />
     </div>
   );
+}
+
+function formatSkipConfirmMessage(skipConfirm: {
+  skippedStages: ApplicationStatus[];
+  count: number;
+}): string {
+  const labels = skipConfirm.skippedStages.map((s) => STATUS_LABELS[s]);
+  const stageList =
+    labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`;
+  const subject = skipConfirm.count > 1 ? `${skipConfirm.count} applications will` : 'This will';
+  return `${subject} skip ${stageList} without ever passing through ${labels.length > 1 ? 'them' : 'it'}. Continue?`;
 }

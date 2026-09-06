@@ -1,6 +1,7 @@
 import type { ApplicationStatus } from '../constants/status';
 import type { PlatformSource } from '../constants/platforms';
 import type { WorkSetup } from '../constants/workSetup';
+import { toDatetimeLocalValue } from '../lib/format';
 import type { Application } from '../services/applicationsService';
 
 // The form's shape differs from the row: no id/user_id/timestamps, and
@@ -16,6 +17,10 @@ export type ApplicationFormValues = {
   work_setup: WorkSetup | '';
   applied_date: string;
   notes: string;
+  // datetime-local's own value shape, not the stored ISO string — converted
+  // back to one at submission (fromDatetimeLocalValue), the same as
+  // ScheduleInterviewModal.
+  interview_scheduled_at: string;
 };
 
 // Local calendar date, not UTC — new Date().toISOString() would roll back a
@@ -40,4 +45,5 @@ export const toFormValues = (app?: Application): ApplicationFormValues => ({
   work_setup: app?.work_setup ?? '',
   applied_date: app?.applied_date ?? todayISO(),
   notes: app?.notes ?? '',
+  interview_scheduled_at: toDatetimeLocalValue(app?.interview_scheduled_at ?? null),
 });

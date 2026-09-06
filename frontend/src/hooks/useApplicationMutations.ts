@@ -87,15 +87,34 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
   });
 
   // The hot path: a status change (table's inline select today, a Kanban
-  // drag from Phase 3 onward) must feel instant.
+  // drag from Phase 3 onward) must feel instant. `interviewScheduledAt`
+  // omitted means "leave whatever's already there" — only present when the
+  // status-change guard's schedule-interview modal actually set one.
   const changeStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: ApplicationStatus }) =>
-      updateApplicationStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      interviewScheduledAt,
+    }: {
+      id: string;
+      status: ApplicationStatus;
+      interviewScheduledAt?: string | null;
+    }) => updateApplicationStatus(id, status, interviewScheduledAt),
 
     // NOTE: `lists`, not `all` — see the query-key warning in queryKeys.ts.
-    onMutate: ({ id, status }) =>
+    onMutate: ({ id, status, interviewScheduledAt }) =>
       optimisticListUpdate(queryClient, (apps) =>
-        apps.map((a) => (a.id === id ? { ...a, status } : a))
+        apps.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                status,
+                ...(interviewScheduledAt !== undefined
+                  ? { interview_scheduled_at: interviewScheduledAt }
+                  : {}),
+              }
+            : a
+        )
       ),
 
     onError: (_err, _vars, context) => {
@@ -109,12 +128,29 @@ export function useApplicationMutations(callbacks: MutationCallbacks = {}) {
   // One request, one rollback — see the bulk-actions note in docs/05 F5.
   // Must not be implemented as N concurrent single-row changeStatus calls.
   const bulkStatus = useMutation({
-    mutationFn: ({ ids, status }: { ids: string[]; status: ApplicationStatus }) =>
-      bulkUpdateStatus(ids, status),
+    mutationFn: ({
+      ids,
+      status,
+      interviewScheduledAt,
+    }: {
+      ids: string[];
+      status: ApplicationStatus;
+      interviewScheduledAt?: string | null;
+    }) => bulkUpdateStatus(ids, status, interviewScheduledAt),
 
-    onMutate: ({ ids, status }) =>
+    onMutate: ({ ids, status, interviewScheduledAt }) =>
       optimisticListUpdate(queryClient, (apps) =>
-        apps.map((a) => (ids.includes(a.id) ? { ...a, status } : a))
+        apps.map((a) =>
+          ids.includes(a.id)
+            ? {
+                ...a,
+                status,
+                ...(interviewScheduledAt !== undefined
+                  ? { interview_scheduled_at: interviewScheduledAt }
+                  : {}),
+              }
+            : a
+        )
       ),
 
     onSuccess: (_data, { ids }) => callbacks.onBulkStatusChanged?.(ids.length),

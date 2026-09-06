@@ -94,6 +94,34 @@ describe('useApplicationMutations changeStatus', () => {
 
     expect(queryClient.getQueryData<Application[]>(listKey)?.[0].status).toBe('interviewed');
   });
+
+  it('optimistically applies interviewScheduledAt when the guard supplies one', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const listKey = queryKeys.applications.list({}, { field: 'created_at', direction: 'desc' });
+    queryClient.setQueryData(listKey, [mockApp]);
+    vi.mocked(updateApplicationStatus).mockReturnValue(new Promise(() => {})); // never resolves
+
+    const { result } = renderHook(() => useApplicationMutations(), {
+      wrapper: makeWrapper(queryClient),
+    });
+
+    act(() => {
+      result.current.changeStatus.mutate({
+        id: 'app-1',
+        status: 'scheduled_for_interview',
+        interviewScheduledAt: '2026-09-10T06:30:00.000Z',
+      });
+    });
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData<Application[]>(listKey)?.[0]).toMatchObject({
+        status: 'scheduled_for_interview',
+        interview_scheduled_at: '2026-09-10T06:30:00.000Z',
+      });
+    });
+  });
 });
 
 describe('useApplicationMutations bulkStatus', () => {

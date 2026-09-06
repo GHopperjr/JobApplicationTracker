@@ -15,7 +15,7 @@ import { STATUS_LABELS, STATUS_ORDER } from '../../constants/status';
 import { WORK_SETUP_LABELS, WORK_SETUP_ORDER } from '../../constants/workSetup';
 import { useApplicationMutations } from '../../hooks/useApplicationMutations';
 import { useToast } from '../../hooks/useToast';
-import { formatShortTimestamp } from '../../lib/format';
+import { formatShortTimestamp, fromDatetimeLocalValue } from '../../lib/format';
 import { applicationSchema } from '../../lib/validation';
 import { findPotentialDuplicates } from '../../services/applicationsService';
 import { AppError } from '../../services/errors';
@@ -122,12 +122,23 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
     try {
       if (isEditMode && application) {
         // Only changed fields are sent as the patch.
-        const patch = Object.fromEntries(
+        const patch: Record<string, unknown> = Object.fromEntries(
           Object.keys(dirtyFields).map((key) => [key, values[key as keyof ApplicationFormValues]])
         );
+        // Converted here, not left as the raw datetime-local string — see
+        // fromDatetimeLocalValue's own contract for why this can't be a
+        // generic ''-> null normalization like the service layer's other
+        // optional fields.
+        if ('interview_scheduled_at' in patch) {
+          patch.interview_scheduled_at = fromDatetimeLocalValue(values.interview_scheduled_at);
+        }
         await update.mutateAsync({ id: application.id, patch: { ...patch, ...locationCoords } });
       } else {
-        await create.mutateAsync({ ...values, ...locationCoords });
+        await create.mutateAsync({
+          ...values,
+          interview_scheduled_at: fromDatetimeLocalValue(values.interview_scheduled_at),
+          ...locationCoords,
+        });
       }
       onClose();
     } catch (err) {
@@ -237,6 +248,12 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
               type="date"
               error={errors.applied_date?.message}
               {...register('applied_date')}
+            />
+            <Input
+              label="Interview date and time"
+              type="datetime-local"
+              error={errors.interview_scheduled_at?.message}
+              {...register('interview_scheduled_at')}
             />
             <Textarea label="Notes" error={errors.notes?.message} {...register('notes')} />
           </div>

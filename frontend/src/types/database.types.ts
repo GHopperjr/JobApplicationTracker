@@ -40,6 +40,7 @@ export type Database = {
           company_name: string
           created_at: string
           id: string
+          interview_scheduled_at: string | null
           is_archived: boolean
           job_link: string | null
           job_title: string
@@ -64,6 +65,7 @@ export type Database = {
           company_name: string
           created_at?: string
           id?: string
+          interview_scheduled_at?: string | null
           is_archived?: boolean
           job_link?: string | null
           job_title: string
@@ -88,6 +90,7 @@ export type Database = {
           company_name?: string
           created_at?: string
           id?: string
+          interview_scheduled_at?: string | null
           is_archived?: boolean
           job_link?: string | null
           job_title?: string
@@ -179,6 +182,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          monthly_application_goal: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          monthly_application_goal?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          monthly_application_goal?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

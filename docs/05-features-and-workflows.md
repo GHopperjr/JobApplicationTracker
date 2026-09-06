@@ -458,15 +458,49 @@ Computed client-side by `isStale()` ([03](./03-frontend-architecture.md)) from t
 ### Threshold setting
 - Adjustable in a small "Follow-up reminder" control in the filter bar overflow: 7 / 14 / 30 days,
   or Off.
-- Persisted to `localStorage` under `jat.staleThresholdDays` — the app's only preference, and not
-  worth a database table plus RLS policies ([03](./03-frontend-architecture.md) explains the
-  trade-off).
+- Persisted to `localStorage` under `jat.staleThresholdDays` rather than the `user_preferences`
+  table doc 12 later introduced for the monthly goal — the two aren't correlated closely enough to
+  share one round trip, and there was no working reason to move this one once that table existed
+  ([03](./03-frontend-architecture.md) explains the original trade-off, made back when this really
+  was the app's only preference).
 - "Off" hides every stale marker and the filter chip entirely.
 
 ### Why `status_changed_at` and not `updated_at`
 Editing a note would reset an `updated_at`-based clock — so writing "recruiter said they'd follow up
 next week" would mark the application as freshly-progressed when nothing progressed at all. That is
 backwards for the exact case this feature exists to catch.
+
+---
+
+## F11 — Status-change guardrails
+
+**Added after real use of doc 12's metrics surfaced a source of confusion**: manually skipping
+statuses while testing produced a funnel that looked broken (it wasn't — see doc 12's own framing of
+"reached interview stage" as history, not current status). Two independent guardrails on the status
+change itself, added so a skip is at least a deliberate choice rather than an accidental drag:
+
+**Skip confirmation.** The pipeline `Pending Application → Scheduled for Interview → Interviewed →
+Accepted` is depth-ordered for this purpose only (`Rejected` is excluded — it's an outcome reachable
+from any stage, not a depth to skip past). A *forward* move that jumps past a stage (Pending →
+Interviewed, Pending → Accepted, Scheduled → Accepted) asks for confirmation, naming which stage(s)
+are being skipped, before the change applies. A *backward* move (correcting a mistake) never asks —
+nothing is being skipped by moving back. Applies identically to a single drag/menu change and to a
+bulk status change on a selection; for bulk, the confirmation fires if *any* selected application
+would skip a stage.
+
+**Interview scheduling.** Moving an application to Scheduled for Interview prompts for a date and
+time — `applications.interview_scheduled_at`, a real `timestamptz` column, editable afterward from
+the application form and shown in the Detail Drawer. Entering one is optional: "Skip for now" still
+moves the card, simply leaving the column as it was (unset, on a first move); only an explicit Save
+writes to it. Closing the prompt outright (not "Skip for now") aborts the whole status change — the
+card stays where it started. A bulk move to Scheduled for Interview shows one prompt for the whole
+selection, applying the same date/time to every selected application; skipping it leaves each
+individual application's existing value untouched.
+
+Both guardrails intercept status changes at one point — `ApplicationsPage`'s existing single
+`onStatusChange` callback and bulk handler, which every trigger (Kanban drag, table/mobile inline
+select, "Move to…", bulk actions) already funneled into — rather than duplicating logic across each
+trigger (`hooks/useStatusChangeGuard.ts`).
 
 ---
 
@@ -492,9 +526,10 @@ Recorded here so they are visibly *decisions*, not oversights:
 - Rich text / markdown notes (F6) — escaping surface with no demonstrated need.
 - Attachments (resume version used, screenshots of a posting) — needs Supabase Storage plus its
   own RLS policy set.
-- Interview date as a first-class field with reminders — belongs with a notifications phase, not
-  in a tracker's first release. F10's stale detection covers the underlying need (not losing track
-  of a follow-up) without it.
+- **Interview date/time itself is no longer deferred** — see F11; it shipped as a real field once
+  the status-change guardrails needed somewhere to write it. **Reminders on it still are** — those
+  belong with a notifications phase, not in a tracker's first release. F10's stale detection covers
+  the underlying "don't lose track of a follow-up" need without them.
 - Analytics ("response rate by platform", "average days in stage") — the `status_history` and
   `status_changed_at` design makes this straightforward later; nothing here precludes it.
 - CSV import in *update* mode (upsert against existing rows) — import creates only
