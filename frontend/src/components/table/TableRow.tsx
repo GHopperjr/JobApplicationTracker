@@ -1,4 +1,5 @@
 import { ApplicationActions } from '../../components/application/ApplicationActions';
+import { DistanceBadge } from '../../components/application/DistanceBadge';
 import { StaleIndicator } from '../../components/application/StaleIndicator';
 import { PLATFORM_LABELS } from '../../constants/platforms';
 import { STATUS_LABELS, STATUS_ORDER, STATUS_STYLES, type ApplicationStatus } from '../../constants/status';
@@ -83,7 +84,12 @@ export function TableRow({
         </select>
       </td>
       <td className="px-3 py-2.5 text-sm text-slate-600">{PLATFORM_LABELS[application.platform_source]}</td>
-      <td className="px-3 py-2.5 text-sm text-slate-600">{application.location}</td>
+      <td className="px-3 py-2.5 text-sm text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate">{application.location}</span>
+          <DistanceBadge application={application} />
+        </div>
+      </td>
       <td className="px-3 py-2.5 text-sm text-slate-600">
         {application.work_setup ? WORK_SETUP_LABELS[application.work_setup] : ''}
       </td>

@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { memo } from 'react';
 import { ApplicationActions } from '../../components/application/ApplicationActions';
+import { DistanceBadge } from '../../components/application/DistanceBadge';
 import { StaleIndicator } from '../../components/application/StaleIndicator';
 import { PLATFORM_LABELS, PLATFORM_STYLES } from '../../constants/platforms';
 import type { ApplicationStatus } from '../../constants/status';
@@ -130,7 +131,8 @@ function ApplicationCardImpl({
             {PLATFORM_LABELS[application.platform_source]}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-slate-400">
+        <div className="flex shrink-0 items-center gap-1.5 text-slate-400">
+          <DistanceBadge application={application} />
           {application.salary_range && <span className="truncate">{application.salary_range}</span>}
           {application.salary_range && application.applied_date && <span>·</span>}
           {application.applied_date && <span>{formatCardDate(application.applied_date)}</span>}

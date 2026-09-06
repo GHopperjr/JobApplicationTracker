@@ -52,7 +52,7 @@ to configure in Vercel and GitHub. Both services chosen below need neither.
 
 | Service | Used for | Cost | Account needed | Key needed |
 |---|---|---|---|---|
-| Nominatim (OpenStreetMap) | Address → coordinates | $0 | No | No |
+| Photon (OpenStreetMap, komoot.io) | Address → coordinates | $0 | No | No |
 | OSRM (public demo server) | Driving distance + duration | $0 | No | No |
 
 Both are community-run public endpoints with usage policies rather than contracts. That trade is
@@ -117,7 +117,26 @@ The sidebar adopts the *structure* of the reference layout, not its appearance. 
   [04](./04-design-system.md). No new colour system.
 - Active item: `bg-slate-100 text-slate-900 font-medium`. Inactive: `text-slate-600`, with
   `hover:bg-slate-50`. The active item is also marked `aria-current="page"`.
-- Width `w-56`, `border-r border-slate-200`, `bg-white`.
+- Width `224px` expanded, `64px` collapsed (see "Desktop collapse" below), `border-r
+  border-slate-200`, `bg-white`.
+
+### Desktop collapse
+
+*Added after the initial build, on user request ("must be properly collapsed with animation").*
+
+A toggle button (`‹`/`›`, the same plain-character convention as the rest of the sidebar) sits at
+the top of `Sidebar` and animates its width between `224px` and `64px` via `motion.aside`'s
+`animate={{ width }}`, using `useMotionDuration` so `prefers-reduced-motion` collapses the
+transition to instant rather than skipping the feature outright — the same pattern `SegmentedToggle`
+and `Modal` already use.
+
+Collapsed, nav items lose their text label (kept for assistive tech via `sr-only`) and show only the
+label's first letter, matching the account menu's own text-initials treatment rather than reaching
+for an icon font. The preference persists per-device in `localStorage` via `useSidebarCollapsed`,
+the same pattern as `useStaleThreshold` — not worth a database round-trip for one boolean.
+
+This only applies to the desktop `Sidebar`; the mobile `Drawer`'s `SidebarNav` is already full-width
+inside a bottom sheet, so `collapsed` there stays `false` and is never exposed to the user.
 
 ### Responsive behaviour
 
@@ -142,7 +161,7 @@ on navigation.
 ```tsx
 <div className="flex min-h-screen">
   {!isMobile && <Sidebar />}
-  <div className="flex min-h-screen flex-1 flex-col">
+  <div className="flex min-h-screen min-w-0 flex-1 flex-col">
     <header>…</header>
     <main><Outlet /></main>
   </div>
@@ -152,6 +171,15 @@ on navigation.
 `Sidebar` is a new component under `components/layout/`. Nav items come from a single exported
 array so that adding Archive or Metrics later is a one-line change in one file, not an edit in
 three places.
+
+**Corrected after implementation:** the content column originally omitted `min-w-0`. A flex item's
+default `min-width` is `auto`, which means it refuses to shrink below its widest descendant's
+intrinsic content width — here, the Kanban board's un-scrolled column set. Board view (five columns
+wider than most viewports) forced the whole content column, header included, past the viewport
+instead of letting the board's own `overflow-x-auto` scroll internally, which is why switching to
+Board view visibly cut off both the header's right-side content and the fifth column while Table
+view (whose content fits) looked fine. `min-w-0` overrides that default and gives every descendant,
+including the sticky header, a hard containing-block width to clip against.
 
 ---
 
@@ -210,7 +238,11 @@ create policy "Users can delete their own saved locations"
   using (auth.uid() = user_id);
 ```
 
-The same `set_updated_at` before-trigger already used by `applications` is attached here too.
+An `updated_at` before-trigger is attached here too — but **a separate
+`touch_updated_at()` function, not the `set_updated_at()` used by `applications`.** That one's body
+reads `new.status` to maintain `status_changed_at`; `saved_locations` has no `status` column, so
+reusing it raises `record "new" has no field "status"` on every update. (Verified against a local
+database during implementation — this correction replaces the original instruction to reuse it.)
 
 **`latitude`/`longitude` are nullable on purpose.** A row exists as soon as the user saves it; the
 coordinates arrive from geocoding, which can fail. A location with no coordinates is still a valid,
@@ -241,38 +273,40 @@ Regenerate `database.types.ts` after both migrations and commit it.
 
 ---
 
-## Geocoding — Nominatim
+## Geocoding — Photon
+
+**Corrected after implementation — the original spec named Nominatim here, and it does not work.**
+Nominatim's public server sends no `Access-Control-Allow-Origin` header at all (verified directly
+against the live endpoint), so a browser `fetch()` to it is blocked by CORS on every call, always.
+Because this feature's contract is "never throw, just return no coordinates," that failure was
+silent — every address appeared to simply not resolve, with no error anywhere. **Photon**
+(`photon.komoot.io`) replaces it: same OSM data, same no-API-key/no-billing profile, and it does
+send `Access-Control-Allow-Origin: *`.
 
 ### The request
 
 ```
-GET https://nominatim.openstreetmap.org/search
+GET https://photon.komoot.io/api/
       ?q=<uri-encoded address>
-      &format=jsonv2
       &limit=1
 ```
 
-The first result's `lat` and `lon` are taken; anything else in the response is discarded. `limit=1`
-is deliberate — this feature does not offer the user a "did you mean?" list of candidate addresses.
-It either resolves to one point or it does not resolve.
+The response is GeoJSON. The first feature's `geometry.coordinates` is taken as `[longitude,
+latitude]` — **GeoJSON order, the reverse of a `lat`/`lon` pair** and the same trap OSRM's own
+coordinate order is. Anything else in the response is discarded. `limit=1` is deliberate — this
+feature does not offer the user a "did you mean?" list of candidate addresses. It either resolves
+to one point or it does not resolve.
 
 ### Usage policy compliance
 
-Nominatim's public server is free with conditions, all of which this feature meets:
+Photon's public server is free for reasonable use, with no API key or account, the same spirit as
+OSRM's public demo server below:
 
 | Requirement | How it is met |
 |---|---|
-| Max 1 request/second | Trivially — requests are user-initiated and rare (see *Request volume*) |
-| Identify the application | Via the `Referer` header the browser sends automatically |
+| Reasonable request volume | Trivially — requests are user-initiated and rare (see *Request volume*) |
 | No bulk geocoding | Never more than one address per user action |
-| Attribution | "© OpenStreetMap contributors" credited in the Settings page footer, beside the saved-locations list |
-
-**The `User-Agent` header cannot be set from a browser** — it is a
-[forbidden header name](https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name),
-and any attempt to set it from `fetch` is silently dropped. Nominatim's policy accounts for this by
-accepting the `Referer` header for browser-based clients, which Vercel-served pages send on their
-own. **Do not waste time trying to set a custom `User-Agent`; it will appear to work in code and do
-nothing in the browser.**
+| Attribution | "© OpenStreetMap contributors" credited in the Settings page footer, beside the saved-locations list — Photon's underlying data is OSM's, same as Nominatim's would have been |
 
 ### Content Security Policy
 
@@ -285,7 +319,7 @@ Supabase URL during the first production deploy.
 connect-src 'self'
             https://*.supabase.co
             wss://*.supabase.co
-            https://nominatim.openstreetmap.org
+            https://photon.komoot.io
             https://router.project-osrm.org;
 ```
 
@@ -305,7 +339,7 @@ from — reads coordinates that already exist and calls no external API at all.
 
 **Geocoding never blocks the write it accompanies.** The application or saved location is inserted
 first; the geocode is attempted after, and its result is patched onto the row if it succeeds. A
-Nominatim outage, a rate-limit rejection, or an unresolvable address leaves `latitude`/`longitude`
+Photon outage, a rate-limit rejection, or an unresolvable address leaves `latitude`/`longitude`
 null and produces no error toast. The user's data is saved either way. This is a feature that
 enhances a row, not a validation step that can reject one.
 
@@ -322,65 +356,156 @@ The first two produce null coordinates and no distance UI. The third resolves an
 that is only as precise as what the user typed — which is acceptable, because the user typed it and
 can see what they typed.
 
+**Correction, verified live against Photon:** the second bullet's premise was wrong.
+`geocodeAddress("Remote (PH)")` does not fail to resolve on its own — Photon's fuzzy matching
+returned a real coordinate hundreds of km away (Mindanao), not a clean "no match." A mocked test
+suite alone never would have caught this, since a mock only proves the code handles the response
+*you wrote*. `geocodeAddress` now checks a short denylist of known non-address placeholders
+("remote", "remote (ph)", "work from home", "wfh", "anywhere", "n/a", "tbd", "tba", …) and returns
+`null` immediately, before any request — verified against the live endpoint after the fix. This
+check lives only in `geocodeAddress` (the silent write-time fallback), not in `searchPlaces` (the
+live picker): a user looking at real search results before picking one is a fundamentally safer
+situation than a value being silently geocoded with no one watching.
+
+### Search-as-you-type
+
+**Added after the original spec, in response to a real precision problem it caused.** A single
+free-typed field cannot tell the user *how* to phrase an address, and a bad phrasing failed
+silently: a real address (`"5th Floor, PNB Building, 6754 Ayala Ave, Legazpi Village, Makati City,
+1229 Metro Manila"`) returned zero results, while the same place phrased naturally
+(`"PNB Building Ayala Avenue Makati"`) resolved precisely. The data was never the problem — the
+query shape was.
+
+Both the saved-location address field and an application's location field are backed by
+`components/ui/AddressAutocomplete`: typing debounces (300ms) into a live Photon query
+(`searchPlaces`, `limit=5`), shown as a dropdown under the field. Picking a result fills the field
+with a clean formatted address and hands the caller the resolved coordinates *and* the place's own
+name when Photon's data has one (`"PNB"`, not just an address) — this is also how a company/building
+name can be captured directly: searching `"PNB Makati"` by name alone returns real, precisely
+located branches, no separate "search by name" feature needed.
+
+**Nothing is forced.** The field stays a plain free-text input underneath — a user can type an
+address and never open the dropdown, or edit after picking a suggestion, and the value still
+submits. Any edit after a pick clears the resolved coordinates (tracked as component state, not
+persisted), falling back to the existing write-time `geocodeAddress` for whatever text is finally
+submitted. This is why the two paths never conflict: a pick is a fast-path precision improvement,
+never the only way coordinates get set.
+
+**Why not a map picker instead.** Considered and deliberately not built: technically zero-cost
+(Leaflet + OSM's own raster tiles, no key), but it's a new ~40KB dependency and the first map surface
+in an otherwise map-free app, for a problem that turned out to be about query phrasing, not
+precision — live suggestions already show a user when their phrasing is too specific and let them
+correct it, without a map. The "no map tiles anywhere" boundary from Scope, above, still holds.
+
+**Saved locations vs. applications differ in one way:** a saved location's `label` is the user's own
+nickname for the place, so picking a suggestion offers its name as the label *only when the label
+field is still empty* — never overwriting something the user already typed. An application's
+`location` field has no equivalent "name" slot to offer into; `company_name` is a separate,
+independently-typed field and is never auto-filled from a location pick, since the entity at an
+address (a building's ground-floor bank, say) is very often not the employer renting space inside it.
+
 ---
 
 ## Distance and ETA
 
-### Straight-line distance — no API
+All distance figures displayed anywhere in the app are **kilometres**, one decimal below 10 km and
+whole numbers above (`4.2 km`, `18 km`). Metric only — the app's entire context is Philippine, down
+to the peso salary examples in [01](./01-database-schema.md).
 
-Once both points have coordinates, the kilometre figure is **pure client-side arithmetic**. There is
-no service call and nothing to rate-limit:
+### Road distance caching — the card/row badge
 
-```ts
-// lib/distance.ts
-const EARTH_RADIUS_KM = 6371;
+**Corrected after implementation, on user request.** The badge originally showed a straight-line
+figure computed live, client-side, from the two coordinate pairs already on the row (`haversineKm`,
+now removed). That was cheap but visibly disagreed with the drawer's real road distance — a real
+Cavite address's straight-line figure was 2.8 km against an actual 5.35 km road route — which read
+as the app being wrong rather than as two deliberately different numbers, regardless of the
+tooltip's "(straight-line)" caveat.
 
-export function haversineKm(a: Coordinates, b: Coordinates): number {
-  const dLat = toRadians(b.latitude - a.latitude);
-  const dLng = toRadians(b.longitude - a.longitude);
-  const lat1 = toRadians(a.latitude);
-  const lat2 = toRadians(b.latitude);
+The badge now shows the same real road distance as the drawer. Reading it live from OSRM, though,
+would mean one request per visible card — `ApplicationCard`, `TableRow`, and `MobileApplicationRow`
+all render one badge per row, and a full board can have dozens on screen at once. That directly
+violates the "rendering the board costs zero requests" guarantee this feature was built around (see
+*Request volume* below), so the result is **cached on the application row instead**:
 
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(h));
-}
+```sql
+-- 20260906000002_add_road_distance_cache.sql
+alter table public.applications
+  add column road_distance_meters   double precision,
+  add column road_duration_seconds  integer,
+  add column road_distance_from_lat double precision,
+  add column road_distance_from_lng double precision;
 ```
 
-Displayed as **kilometres**, one decimal below 10 km and whole numbers above (`4.2 km`, `18 km`).
-Metric only — the app's entire context is Philippine, down to the peso salary examples in
-[01](./01-database-schema.md).
+`road_distance_from_lat`/`lng` record *which saved location's coordinates* the cache was computed
+against — not its id — because editing that location's own address (without changing which location
+is default) must also invalidate the cache, and comparing coordinates catches that for free.
 
-**This is the number on the card badge**, and it is why the badge costs nothing: by the time a card
-renders, both coordinates are already in the row, and the calculation is a few multiplications.
+`hooks/useEnsureRoadDistance.ts` is the one place this cache gets warmed: given an application and
+the current default location, it compares the cached coordinates against the location's current
+ones, and — only on a mismatch (including "never computed") — calls OSRM once and persists the
+result via `applicationsService.updateApplicationRoadDistance`, fire-and-forget, the same
+Realtime-carries-the-patch-back pattern as the existing geocode cache. `DistanceBadge` calls this
+hook and otherwise only ever reads the cached columns; it never calls OSRM itself and never falls
+back to a straight-line number. While the cache is missing or stale it renders nothing, the same "no
+placeholder" contract the feature has always had — the badge simply appears a moment after the
+board renders instead of being present immediately.
 
-### Driving ETA — OSRM
+Every write path that changes an application's own coordinates (the background geocode patch, the
+explicit clear on an emptied location, and the address-picker's direct patch in `updateApplication`)
+clears these four columns in that same statement — the destination changed, so any cached distance
+against the old one is now wrong, and nulling it lets the same staleness check above catch it
+uniformly rather than needing a second signal for "the application itself moved."
+
+### Driving ETA and road distance — OSRM
 
 ```
 GET https://router.project-osrm.org/route/v1/driving/{lng1},{lat1};{lng2},{lat2}
       ?overview=false
 ```
 
-`routes[0].duration` is seconds, `routes[0].distance` is metres. Only the duration is used; the
-kilometre figure shown stays the straight-line one, so the badge and the drawer never disagree with
-each other.
+`routes[0].duration` is seconds, `routes[0].distance` is metres.
+
+**Corrected twice after implementation, both times against real evidence.** The original spec used
+only `duration` and kept a straight-line figure everywhere, "so the badge and the drawer never
+disagree." That traded away real accuracy for consistency: a real Cavite address's straight-line
+distance was 2.8 km, but the actual road route — confirmed via Google Maps and by requesting OSRM's
+own turn-by-turn steps — was 5.35 km over named streets (San Agustin Street → Antero Soriano Highway
+→ General Trias Drive → Marseilla Street → J.K. Mata Street → Ave Maria Street), matching Google's
+5.5 km far more closely than the straight-line number ever could. The first correction made the
+drawer (`DistanceRow`) show `routes[0].distance` (via `metersToKm`) once the route resolves, falling
+back to the straight-line figure while loading or on failure — but a user later pointed out that
+fallback still visibly disagreed with the real number whenever it appeared (most noticeably while
+switching which saved location to measure from). The second correction removed the straight-line
+fallback everywhere: `DistanceRow` now shows "Calculating distance…" while the route is in flight and
+"Distance unavailable" if it fails, never an approximated number, and the badge reads a cache of the
+same real figure instead of computing its own (see *Road distance caching* above).
+
+**The duration is still a free-flow estimate, not a live-traffic-aware one.** For that same real
+route, OSRM returned 7 minutes — implying ~46 km/h average — while Google's live-traffic routing
+(navigating around an actual road closure OSRM's static road graph didn't know about) returned
+18–19 minutes. OSRM has no live congestion feed and no knowledge of recent closures, so its road
+*distance* is reliable (real road-network routing, confirmed above) while its *duration* is a
+best-case lower bound, not a prediction. No free, zero-cost routing service provides live-traffic
+ETAs; this is inherent to the choice, not a bug — which is why `DistanceRow` prints "No live traffic
+factored in" directly beneath the ETA whenever a route resolves, rather than only saying so in a
+document a user never sees.
 
 **Coordinates are `longitude,latitude` — the reverse of every other API in this feature, and the
 reverse of how they are stored.** This ordering trap is the most common OSRM integration bug. The
 service layer takes typed `Coordinates` objects and does the flip in exactly one place, so no call
 site can get it wrong.
 
-**ETA is computed live, on demand, only when the drawer is open.** It is not stored and not cached:
+**The drawer's whole route — distance and ETA together — is computed live, on demand, only when the
+drawer is open. Neither is stored or cached there**, unlike the badge's distance-only cache:
 
 - It depends on a *pair* (which saved location × which application), so caching it means caching
   N×M values and invalidating them whenever either side moves.
 - The drawer is opened rarely and deliberately — this is not a per-card cost.
-- Travel time is the one number here with a legitimate reason to be recomputed rather than
-  remembered.
+- The user can switch which saved location to measure from mid-view, which the badge's
+  single-default-location cache never needs to handle.
 
-If the routing call fails or is slow, the drawer still shows the kilometre distance; only the "~N
-min by car" clause is omitted. The two numbers fail independently.
+If the routing call fails or is slow, `DistanceRow` shows "Calculating distance…" or "Distance
+unavailable" in place of a number — never an approximated one (see the correction above).
 
 ### Why no transit ETA
 
@@ -405,17 +530,21 @@ honest about what it actually knows.
 
 The reason two community-run endpoints are an acceptable dependency:
 
-| Event | Nominatim calls | OSRM calls | Frequency |
+| Event | Photon calls | OSRM calls | Frequency |
 |---|---|---|---|
 | Add/edit a saved location | 1 | 0 | A handful of times, ever |
 | Add an application | 1 | 0 | A few per week during an active search |
 | Edit an application's location | 1 | 0 | Rare |
-| Open the detail drawer | 0 | 1 | Several per day at most |
-| Render the board or table | **0** | **0** | Constantly |
+| Open the detail drawer | 0 | 1 per location switch | Several per day at most |
+| A card's road-distance cache is stale | 0 | 1, once, self-healing | Once per application, only right after it's added or the default location changes |
+| Render the board or table (steady state) | **0** | **0** | Constantly |
 
-The last row is the important one. The common case — looking at the board, scrolling, filtering,
-switching views — makes **no external requests at all**, because every distance on screen is
-arithmetic over columns already fetched with the row.
+The last row is the important one, and the one before it is the trade-off that keeps it true. The
+common case — looking at the board, scrolling, filtering, switching views — makes **no external
+requests at all** once every visible card's road-distance cache is warm, because the badge then only
+ever reads columns already fetched with the row. The one time that isn't true is right after adding
+an application or changing the default saved location, when each newly-stale card fires exactly one
+OSRM call the first time it renders, then never again until something changes its inputs.
 
 ---
 
@@ -440,17 +569,26 @@ A new row in the existing detail list, between Location and Work setup:
 
 ```
 Distance    12.4 km from Home · ~22 min by car        [Home ▾]
+            No live traffic factored in
 ```
+
+The km figure is always the **real road distance** (`routes[0].distance`) — while it's loading, the
+line reads "Calculating distance…" instead of a number; if the route fails, "Distance unavailable."
+Neither state ever shows an approximated figure (see the correction two sections up).
 
 The selector only renders when the user has more than one saved location; with exactly one, the
 label is stated inline and there is nothing to choose. The selection is component state — it is not
-persisted and resets to the default location each time the drawer opens.
+persisted and resets to the default location each time the drawer opens. Switching it re-triggers
+the same loading/resolved/unavailable states above for the newly selected pair.
 
 ### Card and row badge
 
-A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **kilometres
-only, no ETA**. The card's meta line is already carrying three values; a travel-time clause there
-would crowd it, and the ETA is exactly the sort of detail the drawer exists for.
+A compact `12.4 km` badge, in the existing muted meta row alongside platform and date — **the same
+real road distance as the drawer, read from the cache described under *Road distance caching*
+above, no ETA**. The card's meta line is already carrying three values; a travel-time clause there
+would crowd it, and the ETA is exactly the sort of detail the drawer exists for. Its tooltip states
+the saved location's label only — the figure now matches the drawer's, so there is nothing left to
+caveat.
 
 `MobileApplicationRow` and `TableRow` get the same treatment in their meta lines.
 
@@ -460,7 +598,10 @@ The distance UI — badge and drawer row alike — renders nothing at all when:
 
 - the user has no saved locations, or
 - the selected saved location has no coordinates, or
-- the application's location has no coordinates.
+- the application's location has no coordinates, or
+- (badge only) the road-distance cache hasn't resolved yet — see *Road distance caching* above;
+  this is transient, not a permanent state, and self-heals within one render cycle of a background
+  OSRM call.
 
 **No placeholders, no "unknown", no empty-state prompts inside the cards.** A user who has not set
 up a saved location sees precisely the app they see today. This is the difference between an
@@ -475,16 +616,21 @@ I/O, hooks own cache and state, components own rendering and call neither direct
 
 | File | Responsibility |
 |---|---|
-| `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion |
-| `services/geocodingService.ts` | The single Nominatim call. Returns `Coordinates \| null` — never throws |
-| `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns seconds \| null |
-| `lib/distance.ts` | `haversineKm`, `formatKm`, `formatDuration`. Pure functions, no I/O |
+| `services/savedLocationsService.ts` | CRUD for `saved_locations`; the two-statement default promotion; accepts pre-resolved coordinates from the picker to skip a redundant geocode |
+| `services/geocodingService.ts` | `searchPlaces` (multi-result, backs the picker) and `geocodeAddress` (single-result write-time fallback, built on top of it). Neither throws |
+| `services/routingService.ts` | The single OSRM call, including the lng/lat flip. Returns `DrivingRoute { durationSeconds, distanceMeters } \| null` |
+| `services/applicationsService.ts` | `updateApplicationRoadDistance` persists the badge's cache; every coordinate-changing write path clears it in the same statement |
+| `lib/distance.ts` | `formatKm`, `formatDuration`, `metersToKm`. Pure functions, no I/O |
 | `hooks/useSavedLocations.ts` | Query + mutations for the list |
 | `hooks/useDefaultLocation.ts` | The selected/default location for distance display |
 | `hooks/useDrivingEta.ts` | The on-demand routing query, drawer only, `enabled` on both coordinate pairs existing |
-| `components/layout/Sidebar.tsx` | Nav shell |
+| `hooks/useEnsureRoadDistance.ts` | Warms the badge's road-distance cache in the background, once per staleness, never at render time |
+| `hooks/useSidebarCollapsed.ts` | The desktop collapse preference, `localStorage`-backed like `useStaleThreshold` |
+| `components/layout/Sidebar.tsx` | Nav shell, including the desktop collapse toggle and its width animation |
+| `components/ui/AddressAutocomplete.tsx` | The shared search-as-you-type field, used by both the saved-location form and the application form's location field |
 | `components/settings/SavedLocationList.tsx` etc. | Settings UI |
-| `components/application/DistanceBadge.tsx` | The shared km badge used by card, row, and mobile row |
+| `components/application/DistanceBadge.tsx` | The card/row badge — reads the road-distance cache, calls `useEnsureRoadDistance` to keep it warm, never calls OSRM itself |
+| `components/application/DistanceRow.tsx` | The drawer's distance line — real road distance once OSRM resolves; "Calculating distance…" or "Distance unavailable" otherwise, never an approximation |
 
 **`geocodingService` and `routingService` return `null` rather than throwing.** They are the only
 two modules in the app that talk to a service which is allowed to be unavailable without it being an
@@ -500,10 +646,12 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 
 **Unit — the bulk of the value here.**
 
-- `haversineKm` against known city-pair distances, tolerance ±1%.
-- `haversineKm` for identical points returns 0, and for antipodal points returns ~20,015 km.
 - `formatKm` boundary: `9.94 → "9.9 km"`, `10.4 → "10 km"`.
 - The lng/lat flip in `routingService` — assert the URL string, since this is the trap.
+- `useEnsureRoadDistance`: no-ops with no saved location, no application coordinates, or an
+  already-valid cache; computes and persists once when the cache is missing or was computed against
+  a different location's coordinates; never persists anything when the route lookup fails; never
+  fires a second lookup on a re-render with the same still-stale inputs (the in-flight guard).
 
 **Service (mocked client/fetch).**
 
@@ -513,13 +661,27 @@ Extending [08](./08-testing-and-ci.md)'s layering:
 
 **Component.**
 
-- The badge renders nothing when either coordinate is missing.
-- The drawer omits the ETA clause when routing returns `null` but still shows kilometres.
+- The badge renders nothing when either coordinate is missing, the cache hasn't resolved yet, or the
+  cache was computed against a different location's coordinates than the current default.
+- The drawer shows "Calculating distance…" while the route is in flight, and "Distance unavailable"
+  if it fails — never a straight-line number in either state.
+- The drawer switches to the real road distance and the "No live traffic factored in" caveat once
+  the route resolves — and only then; a still-loading or failed route never shows the caveat.
 - The saved-location form surfaces validation errors and blocks submit, like every other form.
+- `AddressAutocomplete`: no search below the minimum query length; no search fires merely from a
+  pre-filled value on mount; picking a suggestion fills the field and reports its coordinates;
+  editing after a pick clears the resolved coordinates; the picked value doesn't trigger a second,
+  redundant search; arrow keys + Enter select the highlighted suggestion.
+- Both forms: submitting with a still-matching pick includes coordinates directly; submitting a
+  free-typed (never picked, or edited-after-picked) address omits them, leaving the write-time
+  fallback to handle it.
+- `Sidebar`: renders expanded with full labels by default; toggling collapses nav items to their
+  `sr-only`-labelled first letter and back; the collapsed preference survives a remount
+  (`useSidebarCollapsed`'s `localStorage` persistence).
 
 **Non-negotiable, in the sense [08](./08-testing-and-ci.md) uses the term:**
 
-> **A failed geocode never blocks the write.** Mock Nominatim to reject, create an application with
+> **A failed geocode never blocks the write.** Mock Photon to reject, create an application with
 > a location, and assert the application row still exists with null coordinates. Without this, an
 > outage of a free third-party service becomes an outage of the app's core function.
 
@@ -533,13 +695,26 @@ this adequately.
 
 - **CSP blocks both hosts by default.** Add them to `connect-src` in `vercel.json` in the same
   change that adds the first call, or production silently breaks while local development works.
-- **`User-Agent` cannot be set from the browser.** Rely on `Referer`. Code that appears to set it is
-  dead code.
-- **OSRM takes `lng,lat`; everything else here uses `lat,lng`.** Flip in one place only.
+- **A geocoder without CORS support cannot be called from a browser at all, and the failure is
+  silent.** This is what happened with the originally-specified Nominatim: no
+  `Access-Control-Allow-Origin` header, so every call failed, and because this feature's contract is
+  "never throw," it looked exactly like every address just failing to resolve. Before adopting any
+  geocoder here, confirm `Access-Control-Allow-Origin` is actually present on a real response —
+  a working `curl` request proves nothing about browser usability.
+- **OSRM takes `lng,lat`; Photon's GeoJSON response is also `[lng, lat]`; everything else here
+  (storage, saved locations, application coordinates) uses `lat, lng`.** Flip in exactly one place
+  per API, never inline at a call site.
 - **Coordinates are nullable and frequently null.** Every read path needs the null branch — this is
   the normal case for remote roles, not an edge case.
-- **Do not cache the ETA.** It is a per-pair value; caching it introduces an invalidation problem
-  for a number that costs nothing to recompute.
+- **Do not cache the drawer's ETA.** It is a per-pair value (which saved location × which
+  application); caching it introduces an invalidation problem for a number this feature would
+  otherwise happily recompute every time. This is a different question from the badge's road
+  distance, which *is* cached — the badge only ever measures from one location (the default), not an
+  arbitrary pair, so there's exactly one value to keep warm per application, not N×M.
+- **Invalidate the badge's cache by coordinates, not by saved-location id.** Editing the default
+  location's own address (without changing which location is default) must also invalidate every
+  application's cached distance — `road_distance_from_lat`/`lng` exist specifically so that check
+  doesn't need a second signal for that case.
 - **Do not add a second default location by hand.** The partial unique index will reject it; promote
   by clearing then setting.
 - **`is_default` is not "the location the drawer is showing."** The drawer's selection is transient

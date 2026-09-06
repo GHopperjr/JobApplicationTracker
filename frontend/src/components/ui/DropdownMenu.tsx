@@ -10,6 +10,16 @@ type DropdownMenuProps = {
   triggerRef: RefObject<HTMLElement | null>;
   /** Which edge of the trigger the menu's corresponding edge aligns to. */
   align?: 'start' | 'end';
+  /** Sizes the panel to the trigger's own width instead of its content —
+   * a combobox's suggestion list, unlike every other menu here, needs to
+   * match the input it hangs off rather than size to its own content. */
+  matchTriggerWidth?: boolean;
+  /** Overridable for a listbox-style combobox (paired with `role="option"`
+   * items) rather than the default action-menu semantics. */
+  role?: 'menu' | 'listbox';
+  /** Applied to the rendered panel itself, so a combobox's `aria-controls`
+   * can reference the listbox element directly. */
+  id?: string;
   className?: string;
   children: ReactNode;
 };
@@ -28,12 +38,18 @@ export function DropdownMenu({
   onClose,
   triggerRef,
   align = 'end',
+  matchTriggerWidth = false,
+  role = 'menu',
+  id,
   className,
   children,
 }: DropdownMenuProps) {
-  const [position, setPosition] = useState<{ top: number; left?: number; right?: number } | null>(
-    null
-  );
+  const [position, setPosition] = useState<{
+    top: number;
+    left?: number;
+    right?: number;
+    width?: number;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const duration = useMotionDuration(0.1);
 
@@ -51,11 +67,11 @@ export function DropdownMenu({
     const trigger = triggerRef.current;
     if (!trigger) return;
     const rect = trigger.getBoundingClientRect();
-    setPosition(
-      align === 'start'
-        ? { top: rect.bottom + 4, left: rect.left }
-        : { top: rect.bottom + 4, right: window.innerWidth - rect.right }
-    );
+    setPosition({
+      top: rect.bottom + 4,
+      ...(align === 'start' ? { left: rect.left } : { right: window.innerWidth - rect.right }),
+      ...(matchTriggerWidth ? { width: rect.width } : {}),
+    });
 
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
@@ -77,21 +93,28 @@ export function DropdownMenu({
       window.removeEventListener('scroll', onClose, true);
       window.removeEventListener('resize', onClose);
     };
-  }, [isOpen, align, triggerRef, onClose]);
+  }, [isOpen, align, triggerRef, onClose, matchTriggerWidth]);
 
   return createPortal(
     <AnimatePresence>
       {isOpen && position && (
         <motion.div
           ref={menuRef}
-          role="menu"
+          id={id}
+          role={role}
           // Portaled content still bubbles synthetic React events up through
           // the *component* tree (not the DOM tree) to whatever rendered
           // <DropdownMenu> — without this, clicking a menu item also fires
           // the card/row's own onClick underneath it (e.g. re-opening the
           // detail drawer right after clicking Delete).
           onClick={(e) => e.stopPropagation()}
-          style={{ position: 'fixed', top: position.top, left: position.left, right: position.right }}
+          style={{
+            position: 'fixed',
+            top: position.top,
+            left: position.left,
+            right: position.right,
+            width: position.width,
+          }}
           className={cn(
             'z-50 origin-top-right rounded-md border border-slate-200 bg-white py-1 shadow-lg',
             className

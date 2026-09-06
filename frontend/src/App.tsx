@@ -7,6 +7,7 @@ import { ApplicationFormProvider } from './context/ApplicationFormProvider';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
       >
         <Route path={ROUTES.applications} element={<ApplicationsPage />} />
         <Route path="/applications/:id" element={<ApplicationsPage />} />
+        <Route path={ROUTES.settings} element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

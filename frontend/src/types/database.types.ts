@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -49,8 +44,14 @@ export type Database = {
           job_link: string | null
           job_title: string
           location: string | null
+          location_latitude: number | null
+          location_longitude: number | null
           notes: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat: number | null
+          road_distance_from_lng: number | null
+          road_distance_meters: number | null
+          road_duration_seconds: number | null
           salary_range: string | null
           status: Database["public"]["Enums"]["application_status"]
           status_changed_at: string
@@ -67,8 +68,14 @@ export type Database = {
           job_link?: string | null
           job_title: string
           location?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           notes?: string | null
           platform_source: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat?: number | null
+          road_distance_from_lng?: number | null
+          road_distance_meters?: number | null
+          road_duration_seconds?: number | null
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
@@ -85,14 +92,56 @@ export type Database = {
           job_link?: string | null
           job_title?: string
           location?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
           notes?: string | null
           platform_source?: Database["public"]["Enums"]["platform_source"]
+          road_distance_from_lat?: number | null
+          road_distance_from_lng?: number | null
+          road_distance_meters?: number | null
+          road_duration_seconds?: number | null
           salary_range?: string | null
           status?: Database["public"]["Enums"]["application_status"]
           status_changed_at?: string
           updated_at?: string
           user_id?: string
           work_setup?: Database["public"]["Enums"]["work_setup"] | null
+        }
+        Relationships: []
+      }
+      saved_locations: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          latitude: number | null
+          longitude: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          latitude?: number | null
+          longitude?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          latitude?: number | null
+          longitude?: number | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -168,12 +217,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -197,11 +246,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -222,11 +271,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -247,11 +296,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -264,11 +313,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -302,3 +351,4 @@ export const Constants = {
     },
   },
 } as const
+

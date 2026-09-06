@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { AddressAutocomplete, type ResolvedPlace } from '../../components/ui/AddressAutocomplete';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Input } from '../../components/ui/Input';
@@ -40,14 +41,23 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [duplicate, setDuplicate] = useState<Application | null>(null);
-  // Tracks isOpen transitions so the duplicate notice can be cleared during
-  // render rather than in the effect below — a direct setState call inside
-  // an effect body is exactly the pattern react-hooks/set-state-in-effect
+  // Set only by picking an address-autocomplete suggestion, cleared by any
+  // further edit to the location field — see AddressAutocomplete's own
+  // contract. When present and still matching at submit time, it's written
+  // directly, skipping the write-time geocode fallback entirely
+  // (docs/11-navigation-and-distance.md).
+  const [resolvedLocation, setResolvedLocation] = useState<ResolvedPlace | null>(null);
+  // Tracks isOpen transitions so this state can be cleared during render
+  // rather than in the effect below — a direct setState call inside an
+  // effect body is exactly the pattern react-hooks/set-state-in-effect
   // exists to catch (docs/03-frontend-architecture.md's recurring gotcha).
   const [lastIsOpen, setLastIsOpen] = useState(isOpen);
   if (isOpen !== lastIsOpen) {
     setLastIsOpen(isOpen);
-    if (isOpen) setDuplicate(null);
+    if (isOpen) {
+      setDuplicate(null);
+      setResolvedLocation(null);
+    }
   }
 
   const {
@@ -99,15 +109,25 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
 
   const onSubmit = async (values: ApplicationFormValues) => {
     setSubmitError(null);
+    // Only included when a suggestion is still selected and its address
+    // still matches what's about to be submitted — any further edit to the
+    // field already cleared `resolvedLocation` (see AddressAutocomplete).
+    const locationCoords =
+      resolvedLocation && resolvedLocation.address === values.location
+        ? {
+            location_latitude: resolvedLocation.coordinates.latitude,
+            location_longitude: resolvedLocation.coordinates.longitude,
+          }
+        : {};
     try {
       if (isEditMode && application) {
         // Only changed fields are sent as the patch.
         const patch = Object.fromEntries(
           Object.keys(dirtyFields).map((key) => [key, values[key as keyof ApplicationFormValues]])
         );
-        await update.mutateAsync({ id: application.id, patch });
+        await update.mutateAsync({ id: application.id, patch: { ...patch, ...locationCoords } });
       } else {
-        await create.mutateAsync(values);
+        await create.mutateAsync({ ...values, ...locationCoords });
       }
       onClose();
     } catch (err) {
@@ -179,7 +199,20 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
                 onBlur: (e) => setValue('job_link', autoPrefixUrl(e.target.value), { shouldValidate: true }),
               })}
             />
-            <Input label="Location" error={errors.location?.message} {...register('location')} />
+            <Controller
+              control={control}
+              name="location"
+              render={({ field }) => (
+                <AddressAutocomplete
+                  label="Location"
+                  placeholder="Start typing an address or company name…"
+                  error={errors.location?.message}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onResolvedChange={setResolvedLocation}
+                />
+              )}
+            />
             <Select label="Work setup" error={errors.work_setup?.message} {...register('work_setup')}>
               <option value="">Not specified</option>
               {WORK_SETUP_ORDER.map((w) => (
