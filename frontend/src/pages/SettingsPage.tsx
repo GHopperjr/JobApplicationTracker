@@ -1,5 +1,6 @@
 import { GoalSettings } from '../components/settings/GoalSettings';
 import { ProfileSection } from '../components/settings/ProfileSection';
+import { ResumeUpload } from '../components/settings/ResumeUpload';
 import { SavedLocationList } from '../components/settings/SavedLocationList';
 
 export function SettingsPage() {
@@ -8,6 +9,7 @@ export function SettingsPage() {
       <SavedLocationList />
       <GoalSettings />
       <ProfileSection />
+      <ResumeUpload />
     </div>
   );
 }

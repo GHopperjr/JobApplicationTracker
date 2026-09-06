@@ -28,10 +28,21 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
  * the same upsert against the same row, and a second preference
  * (docs/13-profile-and-experience-filtering.md's graduation date, after
  * docs/12's monthly goal) is exactly the case that would otherwise start
- * duplicating this.
+ * duplicating this. The resume fields (docs/14-ai-match-scoring.md) are the
+ * third.
  */
 export async function upsertUserPreferences(
-  patch: Partial<Pick<UserPreferences, 'monthly_application_goal' | 'graduation_date'>>
+  patch: Partial<
+    Pick<
+      UserPreferences,
+      | 'monthly_application_goal'
+      | 'graduation_date'
+      | 'resume_storage_path'
+      | 'resume_filename'
+      | 'resume_text'
+      | 'resume_uploaded_at'
+    >
+  >
 ): Promise<UserPreferences> {
   const { data, error } = await supabase
     .from('user_preferences')

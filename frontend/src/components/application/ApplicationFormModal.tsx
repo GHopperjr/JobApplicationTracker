@@ -268,6 +268,11 @@ export function ApplicationFormModal({ isOpen, application, onClose }: Applicati
               error={errors.interview_scheduled_at?.message}
               {...register('interview_scheduled_at')}
             />
+            <Textarea
+              label="Job description"
+              error={errors.job_description?.message}
+              {...register('job_description')}
+            />
             <Textarea label="Notes" error={errors.notes?.message} {...register('notes')} />
           </div>
 

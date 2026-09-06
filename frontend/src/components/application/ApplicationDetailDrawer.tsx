@@ -5,6 +5,7 @@ import { WORK_SETUP_LABELS } from '../../constants/workSetup';
 import { formatDate, formatDateTime } from '../../lib/format';
 import type { Application } from '../../services/applicationsService';
 import { DistanceRow } from './DistanceRow';
+import { MatchScore } from './MatchScore';
 import { StatusBadge } from './StatusBadge';
 import { StatusTimeline } from './StatusTimeline';
 
@@ -95,6 +96,8 @@ export function ApplicationDetailDrawer({
               <p className="whitespace-pre-wrap text-sm text-slate-900">{application.notes}</p>
             </div>
           )}
+
+          <MatchScore application={application} />
 
           <div className="px-4 py-4">
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Timeline</h2>
