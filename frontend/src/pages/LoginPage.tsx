@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate } from 'react-router-dom';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { SegmentedToggle } from '../components/ui/SegmentedToggle';
@@ -14,14 +14,8 @@ import { WORK_SETUP_LABELS, type WorkSetup } from '../constants/workSetup';
 import { useAuth } from '../hooks/useAuth';
 import { useMotionDuration } from '../hooks/useMotionDuration';
 import { cn } from '../lib/cn';
+import { credentialsSchema } from '../lib/validation';
 import { AppError } from '../services/errors';
-
-const credentialsSchema = z.object({
-  email: z.string().trim().min(1, 'Email is required').email('Enter a valid email address'),
-  // No composition rules — forced symbols/numbers measurably push users
-  // toward weaker, more predictable passwords (docs/05 F1).
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
 
 type CredentialsValues = z.infer<typeof credentialsSchema>;
 

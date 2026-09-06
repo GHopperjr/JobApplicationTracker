@@ -1,26 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { AddressAutocomplete, type ResolvedPlace } from '../../components/ui/AddressAutocomplete';
 import { useSavedLocations } from '../../hooks/useSavedLocations';
 import type { Coordinates } from '../../lib/distance';
+import { savedLocationSchema } from '../../lib/validation';
 import { AppError } from '../../services/errors';
 import type { SavedLocation } from '../../services/savedLocationsService';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Modal } from '../ui/Modal';
-
-// Mirrors the table's own check constraints (docs/11's schema) so the user
-// gets the real message instead of an opaque 23514.
-const savedLocationSchema = z.object({
-  label: z.string().trim().min(1, 'Label is required').max(60, 'Keep the label under 60 characters'),
-  address: z
-    .string()
-    .trim()
-    .min(1, 'Address is required')
-    .max(300, 'Keep the address under 300 characters'),
-});
 
 type SavedLocationValues = z.infer<typeof savedLocationSchema>;
 

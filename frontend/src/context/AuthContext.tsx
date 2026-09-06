@@ -1,7 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as authService from '../services/authService';
-import { supabase } from '../services/supabaseClient';
 import { AuthContext, type AuthContextValue } from './auth-context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -21,9 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const subscription = authService.onAuthStateChange((event, newSession) => {
       if (event === 'SIGNED_OUT' && sessionRef.current && !manualSignOutRef.current) {
         setSessionExpired(true);
       }
