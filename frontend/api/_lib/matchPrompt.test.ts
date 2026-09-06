@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMatchPrompt } from './matchPrompt';
+import { buildMatchPrompt } from './matchPrompt.js';
 
 // A snapshot-style test, per docs/14-ai-match-scoring.md: a silently
 // malformed prompt (a dropped variable, a missing instruction) is otherwise

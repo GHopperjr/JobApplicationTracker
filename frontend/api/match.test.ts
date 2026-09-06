@@ -9,7 +9,7 @@ vi.mock('@google/genai', () => ({
   Type: { OBJECT: 'OBJECT', NUMBER: 'NUMBER', STRING: 'STRING' },
 }));
 
-const { default: handler } = await import('./match');
+const { default: handler } = await import('./match.js');
 
 function makeReq(body: unknown, method = 'POST'): VercelRequest {
   return { method, body } as unknown as VercelRequest;
