@@ -158,6 +158,37 @@ exist; the route is client-side.
 }
 ```
 
+### Which branches actually deploy
+
+Only `main` (Production) and `dev` (Preview) trigger a deployment. Every other branch —
+`feature/*`, `fix/*`, `chore/*`, `docs/*` — does not, even while its PR is open:
+
+```json
+// vercel.json
+{
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "dev": true
+    }
+  }
+}
+```
+
+**This is a deliberate trade-off, not an oversight.** The default (every branch deploys) means every
+PR gets its own preview build and URL — genuinely useful for a team clicking through a review before
+merge, but for a single-developer project it produced a preview per feature branch that mostly went
+unused before being superseded by the same branch's merge into `dev` anyway, plus a deploy-notification
+email per push. The actual verification step this project relies on (docs/14's "confirm `/api/match`
+resolves against a real deployment") happens against the `dev` Preview after merging, not against a
+feature branch's own preview — so disabling the latter costs nothing that was actually being used.
+
+**The cost, if this project ever gains more than one contributor:** per-PR previews are worth turning
+back on the moment there's a second person to review someone else's branch before merge — that's
+exactly the case the default behavior is for. Reverting is a one-line change: delete the `git` key
+above.
+
 ### Deploy checklist
 
 - [ ] Migrations pushed to `jat-prod` **before** the frontend deploy that depends on them.
